@@ -6,7 +6,12 @@ import LoginView from '../views/Login.vue'
 import AppLayout from '../layouts/AppLayout.vue'
 
 // Layout e Páginas do Painel Interno
-import Upload from '../views/UploadView.vue'
+import Upload from '../views/Upload.vue'
+import Dashboard from '../views/Dashboard.vue'
+import Statistics from '../views/Statistics.vue'
+import Users from '../views/Users.vue'
+import UserCreate from '../views/UserCreate.vue'
+import Settings from '../views/Settings.vue'
 
 const routes = [
   // Páginas Públicas
@@ -20,21 +25,19 @@ const routes = [
     name: 'login', 
     component: LoginView 
   },
-  {
-  path: 'upload',
-  name: 'upload',
-  component: Upload
-},
-
-
   // Rota Pai do Painel Interno (Contém a Sidebar e o Header)
   {
     path: '/app',
     component: AppLayout,
     redirect: '/app/upload',
     children: [
-      // Adicione as rotas filhas do painel aqui (ex: upload)
-      // { path: 'upload', name: 'upload', component: UploadView }
+      { path: 'dashboard', name: 'dashboard', component: Dashboard },
+      { path: 'upload', name: 'upload', component: Upload },
+      { path: 'relatorios', name: 'reports', component: Dashboard },
+      { path: 'graficos', name: 'statistics', component: Statistics },
+      { path: 'usuarios', name: 'users', component: Users },
+      { path: 'usuarios/novo', name: 'user-create', component: UserCreate },
+      { path: 'configuracoes', name: 'settings', component: Settings }
     ]
   }
 ]

@@ -3,3 +3,56 @@
 /* Diga ao Tailwind v4 para escutar todos os arquivos Vue e HTML */
 @source "./**/*.vue";
 @source "./index.html";
+
+:root {
+	font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+	color: #1e293b;
+	background: #f8fafc;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #f8fafc; }
+button, input, select { font: inherit; }
+
+/* Shared dark application theme */
+body .app-shell,
+body .content { background: #070d1c; color: #e2e8f0; }
+
+body .metric-card,
+body .panel,
+body .chart-card,
+body .table-panel,
+body .form-panel,
+body .settings-panel,
+body .upload-card,
+body .guide-card,
+body .selected-file {
+	background: #111827 !important;
+	border-color: #263650 !important;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, .16) !important;
+}
+
+body .upload-card { background: #101b31 !important; }
+body h1, body .metric-card strong, body .panel-heading h2,
+body .chart-card h2, body .settings-panel h2, body .form-panel h2,
+body .upload-card h2, body .guide-card h2, body td strong,
+body .selected-file strong, body legend { color: #f8fafc !important; }
+
+body .subtitle, body .panel-heading p, body .panel-text,
+body .upload-card p, body .guide-card li, body td,
+body .metric-label, body .level-row > div:first-child,
+body .segment-row > div:first-child { color: #94a3b8 !important; }
+
+body th { color: #64748b !important; }
+body .toolbar input, body .toolbar select, body select,
+body .form-panel input, body .settings-panel input {
+	background: #0b1220 !important;
+	border-color: #334766 !important;
+	color: #e2e8f0 !important;
+}
+body .progress { background: #1e293b; }
+body td, body th { border-color: #1e293b !important; }
+body fieldset { border-color: #263650 !important; }
+body .step-label small, body .file-hint, body .selected-file span { color: #64748b !important; }
