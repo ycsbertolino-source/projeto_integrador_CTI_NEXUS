@@ -41,8 +41,8 @@
   max-width: 1000px;
   margin: 0 auto;
   min-height: 100vh;
-  background: #050b14;
-  color: #e2e8f0;
+  background: var(--color-app-bg);
+  color: var(--color-body);
   padding: 32px 20px;
 }
 .page-header {
@@ -62,11 +62,11 @@
 }
 h1 {
   margin: 0;
-  color: #f8fafc;
+  color: var(--color-heading);
   font-size: clamp(1.8rem, 4vw, 2.35rem);
 }
 .subtitle, .panel-text {
-  color: #94a3b8;
+  color: var(--color-muted);
   margin: 8px 0 0;
 }
 .settings-grid {
@@ -79,14 +79,14 @@ h1 {
   gap: 18px;
   align-content: start;
   padding: 24px;
-  background: #0f172a;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
 }
 .settings-panel h2 {
   margin: 0;
-  color: #f8fafc;
+  color: var(--color-heading);
   font-size: 1rem;
 }
 .settings-panel .panel-text {
@@ -96,17 +96,21 @@ h1 {
 label:not(.toggle-row) {
   display: grid;
   gap: 8px;
-  color: #e2e8f0;
+  color: var(--color-body);
   font-size: .82rem;
   font-weight: 700;
 }
 input {
   min-height: 42px;
   padding: 0 12px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid var(--color-border-input);
   border-radius: 8px;
-  color: #f8fafc;
-  background: rgba(15, 23, 42, 0.8);
+  color: var(--color-heading);
+  background: var(--color-surface);
+}
+input:disabled {
+  opacity: .6;
+  cursor: not-allowed;
 }
 .primary-button, .outline-button, .danger-button {
   width: max-content;
@@ -117,12 +121,12 @@ input {
 }
 .primary-button {
   border: 0;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
 }
 .outline-button {
   border: 1px solid rgba(96, 165, 250, 0.6);
-  background: rgba(15, 23, 42, 0.8);
+  background: var(--color-surface);
   color: #bfdbfe;
 }
 .danger-button {
@@ -136,14 +140,14 @@ input {
   align-items: center;
   gap: 16px;
   font-size: .82rem;
-  color: #e2e8f0;
+  color: var(--color-body);
 }
 .toggle-row span {
   display: grid;
   gap: 4px;
 }
 .toggle-row small {
-  color: #94a3b8;
+  color: var(--color-muted);
   font-weight: 400;
 }
 .toggle-row input {

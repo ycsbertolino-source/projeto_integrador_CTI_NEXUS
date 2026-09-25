@@ -4,25 +4,23 @@
 @source "./**/*.vue";
 @source "./index.html";
 
-/* Registra os tokens de cor do tema escuro como variáveis do Tailwind.
-   Isso gera automaticamente classes utilitárias como:
-   bg-surface, bg-panel, border-panel, text-heading, text-muted, etc. */
+/* Tokens de cor do tema escuro — usados nos <style scoped> de cada componente */
 @theme {
 	--color-app-bg: #050b14;
-	--color-surface: #0b1220;      /* fundo de inputs/selects */
-	--color-panel: #111827;        /* fundo de cards/paineis */
-	--color-panel-alt: #101b31;    /* fundo do upload-card */
-	--color-border: #263650;       /* borda padrão dos paineis */
-	--color-border-muted: #1e293b; /* borda de tabelas */
-	--color-border-input: #334766; /* borda de inputs */
+	--color-surface: #0b1220;
+	--color-panel: #111827;
+	--color-panel-alt: #101b31;
+	--color-border: #263650;
+	--color-border-muted: #1e293b;
+	--color-border-input: #334766;
 
-	--color-heading: #f8fafc;      /* títulos, h1, strong */
-	--color-body: #e2e8f0;         /* texto padrão */
-	--color-muted: #94a3b8;        /* subtítulos, texto secundário */
-	--color-faint: #64748b;        /* labels, th, hints */
+	--color-heading: #f8fafc;
+	--color-body: #e2e8f0;
+	--color-muted: #94a3b8;
+	--color-faint: #64748b;
 
-	--color-primary: #0e368d;      /* botão principal */
-	--color-primary-foreground: #f8fafc; /* texto do botão principal (contraste corrigido) */
+	--color-primary: #0e368d;
+	--color-primary-foreground: #f8fafc;
 }
 
 :root {
@@ -37,53 +35,3 @@
 html, body, #app { margin: 0; min-width: 320px; min-height: 100%; background: var(--color-app-bg); }
 body { color: var(--color-body); }
 button, input, select { font: inherit; }
-
-/* Shared dark application theme */
-body .app-shell,
-body .content { background: var(--color-app-bg); color: var(--color-body); }
-
-body .metric-card,
-body .panel,
-body .chart-card,
-body .table-panel,
-body .form-panel,
-body .settings-panel,
-body .upload-card,
-body .guide-card,
-body .selected-file {
-	background: var(--color-panel);
-	border-color: var(--color-border);
-	box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
-}
-
-body .upload-card { background: var(--color-panel-alt); }
-
-body h1, body .metric-card strong, body .panel-heading h2,
-body .chart-card h2, body .settings-panel h2, body .form-panel h2,
-body .upload-card h2, body .guide-card h2, body td strong,
-body .selected-file strong, body legend { color: var(--color-heading); }
-
-body .subtitle, body .panel-heading p, body .panel-text,
-body .upload-card p, body .guide-card li, body td,
-body .metric-label, body .level-row > div:first-child,
-body .segment-row > div:first-child { color: var(--color-muted); }
-
-body th { color: var(--color-faint); }
-
-body select,
-body .form-panel input, body .settings-panel input {
-	background: var(--color-surface);
-	border-color: var(--color-border-input);
-	color: var(--color-body);
-}
-
-body .progress { background: var(--color-border-muted); }
-body td, body th { border-color: var(--color-border-muted); }
-body fieldset { border-color: var(--color-border); }
-body .step-label small, body .file-hint, body .selected-file span { color: var(--color-faint); }
-
-/* Botão principal com contraste corrigido */
-body .primary-button {
-	background: var(--color-primary);
-	color: var(--color-primary-foreground);
-}
