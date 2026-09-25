@@ -77,23 +77,30 @@ const segments = [
 </template>
 
 <style scoped>
-.page-container { max-width: 1280px; margin: 0 auto; }
+.page-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: #050b14;
+  color: #e2e8f0;
+  padding: 32px 20px;
+}
 .page-header { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 28px; }
-.eyebrow { margin: 0 0 8px; color: #2563eb; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-h1 { margin: 0; color: #0f172a; font-size: clamp(1.8rem, 4vw, 2.35rem); }
-.subtitle, .panel-heading p { color: #64748b; margin: 8px 0 0; }
-.primary-button { border: 0; border-radius: 8px; padding: 11px 16px; background: #2563eb; color: white; font-weight: 700; cursor: pointer; }
+.eyebrow { margin: 0 0 8px; color: #60a5fa; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+h1 { margin: 0; color: #f8fafc; font-size: clamp(1.8rem, 4vw, 2.35rem); }
+.subtitle, .panel-heading p { color: #94a3b8; margin: 8px 0 0; }
+.primary-button { border: 0; border-radius: 8px; padding: 11px 16px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; font-weight: 700; cursor: pointer; }
 .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.metric-card, .panel { background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, .04); }
+.metric-card, .panel { background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45); }
 .metric-card { padding: 20px; display: grid; gap: 11px; }
-.metric-label { color: #64748b; font-size: .8rem; }
-.metric-card strong { color: #1e293b; font-size: 1.55rem; }
-.metric-card small { font-weight: 700; font-size: .75rem; }.success { color: #059669; }.info { color: #0891b2; }.warning { color: #d97706; }
+.metric-label { color: #94a3b8; font-size: .8rem; }
+.metric-card strong { color: #f8fafc; font-size: 1.55rem; }
+.metric-card small { font-weight: 700; font-size: .75rem; }.success { color: #34d399; }.info { color: #7dd3fc; }.warning { color: #fbbf24; }
 .dashboard-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; margin-top: 18px; }
 .panel { padding: 22px; }.chart-panel { min-width: 0; }.segment-panel { grid-column: 1 / -1; }
-.panel-heading { display: flex; justify-content: space-between; gap: 16px; align-items: start; }.panel-heading h2 { margin: 0; color: #1e293b; font-size: 1rem; }.chart-tag { color: #2563eb; background: #eff6ff; border-radius: 6px; padding: 5px 9px; font-size: .75rem; font-weight: 700; }
+.panel-heading { display: flex; justify-content: space-between; gap: 16px; align-items: start; }.panel-heading h2 { margin: 0; color: #f8fafc; font-size: 1rem; }.chart-tag { color: #bfdbfe; background: rgba(37, 99, 235, 0.18); border: 1px solid rgba(96, 165, 250, 0.25); border-radius: 6px; padding: 5px 9px; font-size: .75rem; font-weight: 700; }
 .line-chart { width: 100%; height: 220px; margin-top: 22px; }.chart-axis { display: flex; justify-content: space-between; color: #94a3b8; font-size: .7rem; }
-.level-list, .segment-list { display: grid; gap: 22px; margin-top: 28px; }.level-row > div:first-child, .segment-row > div:first-child { display: flex; justify-content: space-between; margin-bottom: 9px; color: #475569; font-size: .82rem; }.level-row strong, .segment-row strong { color: #1e293b; }.progress { height: 8px; overflow: hidden; border-radius: 20px; background: #f1f5f9; }.progress i { display: block; height: 100%; border-radius: inherit; background: #0d9488; }
+.level-list, .segment-list { display: grid; gap: 22px; margin-top: 28px; }.level-row > div:first-child, .segment-row > div:first-child { display: flex; justify-content: space-between; margin-bottom: 9px; color: #e2e8f0; font-size: .82rem; }.level-row strong, .segment-row strong { color: #f8fafc; }.progress { height: 8px; overflow: hidden; border-radius: 20px; background: rgba(148, 163, 184, 0.14); }.progress i { display: block; height: 100%; border-radius: inherit; background: #0d9488; }
 @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); }.dashboard-grid { grid-template-columns: 1fr; }.segment-panel { grid-column: auto; } }
 @media (max-width: 540px) { .page-header { align-items: start; flex-direction: column; }.primary-button { width: 100%; }.kpi-grid { gap: 10px; }.metric-card { padding: 14px; }.metric-card strong { font-size: 1.2rem; } }
 </style>

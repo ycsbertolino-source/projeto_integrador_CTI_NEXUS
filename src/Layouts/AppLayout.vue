@@ -26,8 +26,8 @@
 .app-shell {
   display: flex;
   min-height: 100vh;
-  background: #f8fafc;
-  color: #1e293b;
+  background: #050b14;
+  color: #e2e8f0;
 }
 
 .sidebar {
@@ -89,7 +89,7 @@
   flex: 1;
   padding: 32px;
   min-width: 0;
-  background: #f8fafc;
+  background: #050b14;
 }
 
 .content-bar {
@@ -158,10 +158,11 @@
   .content-bar { margin: -4px 0 22px; }
 }
 
-:global(body) {
+:global(html), :global(body), :global(#app) {
   margin: 0;
+  min-height: 100%;
   font-family: Arial, sans-serif;
-  background: #f8fafc;
+  background: #050b14;
 }
 
 :global(.page-shell) {
