@@ -1,10 +1,70 @@
 <script setup>
-const charts = [
-  { title: 'Evolucao de faturamento', values: ['R$ 82K', 'R$ 96K', 'R$ 108K', 'R$ 124K', 'R$ 136K', 'R$ 148K'], color: '#2563eb' },
-  { title: 'Clientes por nivel', values: ['Nivel A 62%', 'Nivel B 28%', 'Nivel C 10%'], color: '#0d9488' },
-  { title: 'Faturamento por segmento', values: ['Tecnologia 39%', 'Financeiro 29%', 'Varejo 20%', 'Industria 12%'], color: '#7c3aed' },
-  { title: 'Faturamento por consultor', values: ['Ana 32%', 'Carlos 26%', 'Joao 23%', 'Maria 19%'], color: '#f59e0b' },
-]
+import { computed } from 'vue'
+import { usePlanilhaStore } from '@/stores/planilhaStore'
+
+const store = usePlanilhaStore()
+
+// Helper to format currency
+const fmtBRL = (v) => {
+  if (v == null || isNaN(v)) return 'R$ 0'
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+// 1) Evolução de faturamento por mês (group by month/year)
+const faturamentoPorMes = computed(() => {
+  const mapa = new Map()
+  for (const row of store.dadosTratados || []) {
+    const date = row.data_contratacao_date
+    const valor = row.faturamento_anual_num
+    if (!date || !valor) continue
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    mapa.set(key, (mapa.get(key) || 0) + valor)
+  }
+  // sort keys
+  const entries = Array.from(mapa.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+  return entries.map(([k, v]) => ({ label: k, value: v }))
+})
+
+// 2) Clientes por nível
+const clientesPorNivel = computed(() => {
+  const mapa = {}
+  for (const row of store.dadosTratados || []) {
+    const n = (row.nivel_cliente || 'N/A')
+    mapa[n] = (mapa[n] || 0) + 1
+  }
+  return Object.entries(mapa).map(([k, v]) => ({ label: k, value: v }))
+})
+
+// 3) Faturamento por segmento
+const faturamentoPorSegmento = computed(() => {
+  const mapa = {}
+  for (const row of store.dadosTratados || []) {
+    const seg = row.segmento || 'Outros'
+    const val = Number(row.faturamento_anual_num) || 0
+    mapa[seg] = (mapa[seg] || 0) + val
+  }
+  return Object.entries(mapa).map(([k, v]) => ({ label: k, value: v }))
+})
+
+// 4) Faturamento por consultor (top 6)
+const faturamentoPorConsultor = computed(() => {
+  const mapa = {}
+  for (const row of store.dadosTratados || []) {
+    const c = row.consultor || 'Sem consultor'
+    const val = Number(row.faturamento_anual_num) || 0
+    mapa[c] = (mapa[c] || 0) + val
+  }
+  return Object.entries(mapa).map(([k, v]) => ({ label: k, value: v })).sort((a, b) => b.value - a.value).slice(0, 6)
+})
+
+const charts = computed(() => {
+  return [
+    { title: 'Evolução de faturamento (por mês)', values: faturamentoPorMes.value.map(x => `${x.label}: ${fmtBRL(x.value)}`), color: '#2563eb' },
+    { title: 'Clientes por nível', values: clientesPorNivel.value.map(x => `${x.label} ${x.value}`), color: '#0d9488' },
+    { title: 'Faturamento por segmento', values: faturamentoPorSegmento.value.map(x => `${x.label} ${fmtBRL(x.value)}`), color: '#7c3aed' },
+    { title: 'Faturamento por consultor (top)', values: faturamentoPorConsultor.value.map(x => `${x.label} ${fmtBRL(x.value)}`), color: '#f59e0b' },
+  ]
+})
 </script>
 
 <template>

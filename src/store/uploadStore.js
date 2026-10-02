@@ -39,6 +39,47 @@ export const useUploadStore = defineStore('upload', {
 
     linhasComErro: (state) => state.dadosTratados.filter(linha => linha.erros.length > 0), // Retorna apenas as linhas que contêm erros
     linhasValidas: (state) => state.dadosTratados.filter(linha => linha.erros.length === 0)  // Retorna apenas as linhas totalmente válidas
+    ,
+    // Compatibilidade com nomes usados nas views
+    nomeArquivo: (state) => (state.arquivo ? (state.arquivo.name || state.arquivo) : ''),
+    processado: (state) => state.dadosTratados && state.dadosTratados.length > 0,
+    totalRegistros: (state) => state.dadosTratados.length,
+    totalValidos: (state) => state.dadosTratados.filter(l => l.erros.length === 0).length,
+    percentualValido: (state) => {
+      const total = state.dadosTratados.length
+      if (!total) return 0
+      const validos = state.dadosTratados.filter(l => l.erros.length === 0).length
+      return Math.round((validos / total) * 100)
+    },
+    errosPorTipo: (state) => {
+      const mapa = new Map()
+      for (const linha of state.dadosTratados) {
+        for (const e of (linha.erros || [])) {
+          mapa.set(e, (mapa.get(e) || 0) + 1)
+        }
+      }
+      return Array.from(mapa.keys())
+    },
+    resumoRelatorio: (state) => {
+      const total = state.dadosTratados.length
+      const validos = state.dadosTratados.filter(l => l.erros.length === 0).length
+      const comErro = total - validos
+      return [
+        { validacao: 'Válidos', quantidade: validos },
+        { validacao: 'Com erro', quantidade: comErro }
+      ]
+    },
+    erros: (state) => {
+      const out = []
+      for (const linha of state.dadosTratados) {
+        if (!linha.erros || linha.erros.length === 0) continue
+        for (const e of linha.erros) {
+          const campo = String(e).split(' ')[0] || 'campo'
+          out.push({ linha: linha.numero_linha || null, campo, tipo: campo, descricao: e })
+        }
+      }
+      return out
+    }
   },
 
 
@@ -166,7 +207,10 @@ export const useUploadStore = defineStore('upload', {
           const numero = Number(valor)
           if (isNaN(numero)) {
             erros.push('faturamento_anual inválido.') // Valida se a conversão gerou um número válido
+            novaLinha.faturamento_anual_num = null
           } else {
+            // preserve numeric value for aggregations and keep a formatted display string
+            novaLinha.faturamento_anual_num = numero
             novaLinha.faturamento_anual = numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) // Formata o número de volta para o padrão monetário BRL (R$)
           }
         }
@@ -187,8 +231,22 @@ export const useUploadStore = defineStore('upload', {
               const dia = String(data.d).padStart(2, '0') // Garante 2 dígitos para o dia
               const mes = String(data.m).padStart(2, '0') // Garante 2 dígitos para o mês
               novaLinha.data_contratacao = `${dia}/${mes}/${data.y}` // Formata para o padrão DD/MM/AAAA
+              // also preserve a Date object for aggregations
+              novaLinha.data_contratacao_date = new Date(data.y, data.m - 1, data.d)
             } else {
               erros.push('data_contratacao inválida.') // Erro caso a conversão serial falhe
+              novaLinha.data_contratacao_date = null
+            }
+          } else {
+            // try parse string dates like DD/MM/YYYY
+            if (typeof valorData === 'string' && /\d{1,2}\/\d{1,2}\/\d{4}/.test(valorData)) {
+              const parts = valorData.split('/')
+              const d = parseInt(parts[0], 10)
+              const m = parseInt(parts[1], 10)
+              const y = parseInt(parts[2], 10)
+              novaLinha.data_contratacao_date = new Date(y, m - 1, d)
+            } else {
+              novaLinha.data_contratacao_date = null
             }
           }
         }
@@ -224,6 +282,20 @@ export const useUploadStore = defineStore('upload', {
       this.dadosTratados = [] // Limpa os dados tratados
       this.erro = '' // Limpa mensagens de erro
       this.dataUpload = null // Reseta a data e hora do upload
+    }
+    ,
+    // Métodos de compatibilidade usados pelas views
+    carregarPlanilha(nomeArquivo, linhas) {
+      this.arquivo = { name: nomeArquivo }
+      this.dadosOriginais = Array.isArray(linhas) ? linhas : []
+      this.dataUpload = new Date()
+      this.tratarDados()
+    },
+    resetar() {
+      this.limpar()
+    },
+    validarDados() {
+      this.tratarDados()
     }
   }
 })

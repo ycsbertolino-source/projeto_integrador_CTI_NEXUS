@@ -3,7 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 // Layouts e Páginas Públicas
 import HomeView from '../views/Home.vue'
 import LoginView from '../views/Login.vue'
-import AppLayout from '../layouts/AppLayout.vue'
+import AppLayout from '../Layouts/AppLayout.vue'
 
 // Layout e Páginas do Painel Interno
 import Upload from '../views/Upload.vue'
@@ -12,6 +12,8 @@ import Statistics from '../views/Statistics.vue'
 import Users from '../views/Users.vue'
 import UserCreate from '../views/UserCreate.vue'
 import Settings from '../views/Settings.vue'
+import Relatorio from '../views/Relatorio.vue'
+import Relatorios from '../views/Relatorios.vue'
 
 const routes = [
   // Páginas Públicas
@@ -33,7 +35,8 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'dashboard', component: Dashboard },
       { path: 'upload', name: 'upload', component: Upload },
-      { path: 'relatorios', name: 'reports', component: Dashboard },
+      { path: 'relatorio', name: 'relatorio', component: Relatorio },
+      { path: 'relatorios', name: 'relatorios', component: Relatorios },
       { path: 'graficos', name: 'statistics', component: Statistics },
       { path: 'usuarios', name: 'users', component: Users },
       { path: 'usuarios/novo', name: 'user-create', component: UserCreate },

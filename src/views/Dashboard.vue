@@ -1,23 +1,78 @@
 <script setup>
-const kpis = [
-  { label: 'Faturamento total', value: 'R$ 842.000', change: '+12,4%', tone: 'success' },
-  { label: 'Clientes ativos', value: '128', change: '+8 este mes', tone: 'info' },
-  { label: 'Planilhas processadas', value: '36', change: '+5 este mes', tone: 'warning' },
+import { computed } from 'vue'
+import { usePlanilhaStore } from '@/stores/planilhaStore'
+
+const store = usePlanilhaStore()
+
+const totalFaturamento = computed(() => {
+  return (store.dadosTratados || []).reduce((s, r) => s + (Number(r.faturamento_anual_num) || 0), 0)
+})
+
+const clientesAtivos = computed(() => (store.dadosTratados || []).length)
+
+const planilhasProcessadas = computed(() => (store.dataUpload ? 1 : 0))
+
+const kpis = computed(() => [
+  { label: 'Faturamento total', value: totalFaturamento.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), change: '', tone: 'success' },
+  { label: 'Clientes ativos', value: String(clientesAtivos.value), change: '', tone: 'info' },
+  { label: 'Planilhas processadas', value: String(planilhasProcessadas.value), change: '', tone: 'warning' },
   { label: 'Contratacoes', value: '24', change: '+18,2%', tone: 'success' },
-]
+])
 
-const levels = [
-  { label: 'Nivel A', value: 62, color: '#2563eb' },
-  { label: 'Nivel B', value: 28, color: '#0d9488' },
-  { label: 'Nivel C', value: 10, color: '#94a3b8' },
-]
+const levels = computed(() => {
+  const mapa = { A: 0, B: 0, C: 0 }
+  for (const r of store.dadosTratados || []) {
+    const n = (r.nivel_cliente || '').toUpperCase()
+    if (mapa[n] !== undefined) mapa[n]++
+  }
+  const total = mapa.A + mapa.B + mapa.C || 1
+  return [
+    { label: 'Nivel A', value: Math.round((mapa.A / total) * 100), color: '#2563eb' },
+    { label: 'Nivel B', value: Math.round((mapa.B / total) * 100), color: '#0d9488' },
+    { label: 'Nivel C', value: Math.round((mapa.C / total) * 100), color: '#94a3b8' },
+  ]
+})
 
-const segments = [
-  { label: 'Tecnologia', value: 'R$ 328K', width: '78%' },
-  { label: 'Financeiro', value: 'R$ 246K', width: '58%' },
-  { label: 'Varejo', value: 'R$ 172K', width: '42%' },
-  { label: 'Industria', value: 'R$ 96K', width: '24%' },
-]
+const segments = computed(() => {
+  const mapa = {}
+  for (const r of store.dadosTratados || []) {
+    const seg = r.segmento || 'Outros'
+    const val = Number(r.faturamento_anual_num) || 0
+    mapa[seg] = (mapa[seg] || 0) + val
+  }
+  const total = Object.values(mapa).reduce((s, v) => s + v, 0) || 1
+  return Object.entries(mapa).map(([label, value]) => ({ label, value: value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), width: Math.round((value / total) * 100) + '%' }))
+})
+
+// For the small line chart, produce a simple polyline based on last 8 months
+const pathForLineChart = computed(() => {
+  const mapa = new Map()
+  for (const row of store.dadosTratados || []) {
+    const d = row.data_contratacao_date
+    const v = Number(row.faturamento_anual_num) || 0
+    if (!d) continue
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    mapa.set(key, (mapa.get(key) || 0) + v)
+  }
+  const entries = Array.from(mapa.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-8)
+  if (!entries.length) return ''
+  // map values to vertical positions
+  const values = entries.map(e => e[1])
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+  const w = 700
+  const h = 220
+  const gap = w / Math.max(values.length - 1, 1)
+  const points = values.map((v, i) => {
+    const x = Math.round(15 + i * gap)
+    const norm = max === min ? 0.5 : (v - min) / (max - min)
+    const y = Math.round(h - (norm * (h - 40)) - 20)
+    return `${x} ${y}`
+  })
+  // build smooth-ish path using simple polyline
+  const path = 'M' + points.map((p, i) => p.replace(' ', ',')).join(' L ')
+  return path
+})
 </script>
 
 <template>
@@ -46,8 +101,8 @@ const segments = [
           <span class="chart-tag">2026</span>
         </div>
         <svg class="line-chart" viewBox="0 0 700 220" role="img" aria-label="Grafico de evolucao de faturamento">
-          <path d="M15 184 C75 170 100 150 155 158 S240 126 290 138 S380 95 430 111 S520 62 575 80 S645 32 690 48" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
-          <path d="M15 184 C75 170 100 150 155 158 S240 126 290 138 S380 95 430 111 S520 62 575 80 S645 32 690 48 L690 210 L15 210Z" fill="url(#area)" opacity=".45" />
+          <path :d="pathForLineChart" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
+          <path v-if="pathForLineChart" :d="pathForLineChart + ' L690 210 L15 210Z'" fill="url(#area)" opacity=".45" />
           <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2563eb" stop-opacity=".28"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
         </svg>
         <div class="chart-axis"><span>Jan</span><span>Mar</span><span>Mai</span><span>Jul</span><span>Set</span><span>Nov</span></div>

@@ -6,6 +6,7 @@
         <router-link to="/app/dashboard"><span class="nav-icon">⌂</span> Visao geral</router-link>
         <router-link to="/app/upload"><span class="nav-icon">↑</span> Upload</router-link>
         <router-link to="/app/graficos"><span class="nav-icon">▥</span> Estatisticas</router-link>
+        <router-link to="/app/relatorios"><span class="nav-icon">📄</span> Relatórios</router-link>
         <router-link to="/app/usuarios"><span class="nav-icon">◎</span> Usuarios</router-link>
         <router-link to="/app/configuracoes"><span class="nav-icon">⚙</span> Configuracoes</router-link>
       </nav>

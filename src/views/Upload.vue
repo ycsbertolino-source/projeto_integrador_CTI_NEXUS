@@ -1,8 +1,15 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUploadStore } from '@/store/uploadStore'
+
+const router = useRouter()
+const store = useUploadStore()
+const errosLista = computed(() => store.erros || [])
 
 const selectedFile = ref(null)
 const fileInput = ref(null)
+const enviando = ref(false)
 
 function selectFile(event) {
 	selectedFile.value = event.target.files?.[0] || null
@@ -18,6 +25,30 @@ function openFilePicker() {
 
 function formatSize(bytes) {
 	return bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : ''
+}
+
+function removerArquivo() {
+	selectedFile.value = null
+	store.limpar()
+}
+
+// Envia o arquivo pro store (lê, trata e valida) e, se não houver erro
+// global de leitura, navega pra tela de relatório.
+async function enviarParaValidacao() {
+	if (!selectedFile.value) return
+	enviando.value = true
+	await store.lerArquivo(selectedFile.value)
+	enviando.value = false
+
+	// Se houver erros de validação por linha, permanecemos aqui e mostramos os detalhes
+	if (store.totalComErro > 0) {
+		// não navegar, mostrar painel de erros
+		return
+	}
+
+	if (!store.erro) {
+		router.push({ name: 'relatorio' })
+	}
 }
 </script>
 
@@ -54,8 +85,43 @@ function formatSize(bytes) {
 
 		<div v-if="selectedFile" class="selected-file">
 			<div><strong>{{ selectedFile.name }}</strong><span>{{ formatSize(selectedFile.size) }}</span></div>
-			<button type="button" @click="selectedFile = null">Remover</button>
+			<div class="selected-file-actions">
+				<button type="button" class="remove-button" @click="removerArquivo">Remover</button>
+				<button type="button" class="primary-button" :disabled="enviando" @click="enviarParaValidacao">
+					{{ enviando ? 'Validando...' : 'Validar e continuar' }}
+				</button>
+			</div>
 		</div>
+
+		<!-- Painel de erros de validação (aparece quando planilha foi processada e contém erros) -->
+		<section v-if="store.processado && store.totalComErro > 0" class="error-panel" style="margin-top:18px;">
+			<div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+				<div>
+					<strong>Erros encontrados</strong>
+					<div style="color:var(--color-muted);font-size:0.9rem">Total de linhas com erro: {{ store.totalComErro }} · Total de erros: {{ errosLista.length }}</div>
+				</div>
+				<div>
+					<button class="primary-button" type="button" @click="router.push({ name: 'relatorio' })">Abrir relatório completo</button>
+				</div>
+			</div>
+			<div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;padding:12px;max-height:320px;overflow:auto">
+				<table style="width:100%;border-collapse:collapse;font-size:0.92rem">
+					<thead style="color:var(--color-muted);text-align:left">
+						<tr><th style="padding:8px">Linha</th><th style="padding:8px">Campo</th><th style="padding:8px">Descrição</th></tr>
+					</thead>
+					<tbody>
+						<tr v-for="(e, i) in errosLista" :key="i" style="border-top:1px solid rgba(148,163,184,0.06)">
+							<td style="padding:8px">{{ e.linha || '—' }}</td>
+							<td style="padding:8px">{{ e.campo }}</td>
+							<td style="padding:8px;color:var(--color-heading)">{{ e.descricao }}</td>
+						</tr>
+						<tr v-if="!errosLista.length"><td colspan="3" style="padding:12px;color:var(--color-muted)">Nenhum erro listado.</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</section>
+
+		<p v-if="store.erro && !store.processado" class="error-message">{{ store.erro }}</p>
 	</section>
 </template>
 
@@ -143,6 +209,11 @@ h1 { margin: 0; color: var(--color-heading); font-size: clamp(1.8rem, 4vw, 2.35r
 	cursor: pointer;
 }
 
+.primary-button:disabled {
+	opacity: .5;
+	cursor: not-allowed;
+}
+
 .file-hint { margin-top: 18px; color: var(--color-muted); font-size: .72rem; }
 .hidden-input { display: none; }
 
@@ -170,13 +241,26 @@ h1 { margin: 0; color: var(--color-heading); font-size: clamp(1.8rem, 4vw, 2.35r
 .selected-file div { display: grid; gap: 4px; }
 .selected-file strong { color: var(--color-heading); font-size: .84rem; }
 .selected-file span { color: var(--color-muted); font-size: .74rem; }
-.selected-file button { border: 0; background: transparent; color: #fca5a5; font-weight: 700; cursor: pointer; }
+
+.selected-file-actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.remove-button { border: 0; background: transparent; color: #fca5a5; font-weight: 700; cursor: pointer; }
+
+.error-message {
+	margin-top: 14px;
+	color: #fca5a5;
+	font-size: .82rem;
+	font-weight: 600;
+}
 
 @media (max-width: 700px) {
 	.page-header { align-items: start; flex-direction: column; }
 	.upload-layout { grid-template-columns: 1fr; }
 	.upload-card { min-height: 320px; padding: 24px; }
 	.selected-file { align-items: start; flex-direction: column; }
-	.selected-file button { padding: 0; }
+	.selected-file-actions { padding: 0; }
 }
 </style>
