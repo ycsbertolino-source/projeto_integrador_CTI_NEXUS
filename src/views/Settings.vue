@@ -1,3 +1,78 @@
+<script setup>
+import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+const form = ref({
+  name: '',
+  email: '',
+  password: '',
+  role: 'user',
+})
+
+const formMessage = ref({ type: '', text: '' })
+
+const currentUser = computed(() => authStore.getUserById(authStore.user?.id))
+
+const fillForm = () => {
+  const user = currentUser.value || authStore.user
+
+  form.value = {
+    name: user?.name || '',
+    email: user?.email || '',
+    password: '',
+    role: user?.role || 'user',
+  }
+}
+
+watch(
+  () => authStore.user,
+  () => {
+    fillForm()
+  },
+  { immediate: true }
+)
+
+const saveProfile = () => {
+  formMessage.value = { type: '', text: '' }
+
+  if (!authStore.user?.id) {
+    formMessage.value = { type: 'error', text: 'Você precisa estar autenticado para editar o perfil.' }
+    return
+  }
+
+  if (!form.value.name.trim() || !form.value.email.trim()) {
+    formMessage.value = { type: 'error', text: 'Nome e e-mail são obrigatórios.' }
+    return
+  }
+
+  const payload = {
+    name: form.value.name.trim(),
+    email: form.value.email.trim().toLowerCase(),
+    password: form.value.password.trim() || currentUser.value?.password || '',
+    role: form.value.role,
+  }
+
+  const result = authStore.updateUser(authStore.user.id, payload)
+
+  if (!result.ok) {
+    formMessage.value = { type: 'error', text: result.message }
+    return
+  }
+
+  formMessage.value = { type: 'success', text: 'Perfil atualizado com sucesso.' }
+  form.value.password = ''
+}
+
+const logoutAll = () => {
+  authStore.logout()
+  router.push({ name: 'login' })
+}
+</script>
+
 <template>
   <section class="settings-page">
     <header class="page-header">
@@ -9,12 +84,34 @@
     </header>
 
     <div class="settings-grid">
-      <form class="settings-panel" @submit.prevent>
+      <form class="settings-panel" @submit.prevent="saveProfile">
         <h2>Dados do perfil</h2>
         <p class="panel-text">Estas informacoes aparecem para a sua equipe.</p>
-        <label>Nome completo<input type="text" value="Yasmin Cristina da Silva Bertolino" /></label>
-        <label>E-mail<input type="email" value="yasmin@ctinexus.com" /></label>
-        <label>Funcao<input type="text" value="Administrador" disabled /></label>
+
+        <label>
+          Nome completo
+          <input v-model="form.name" type="text" placeholder="Digite o nome completo" />
+        </label>
+
+        <label>
+          E-mail
+          <input v-model="form.email" type="email" placeholder="seu@email.com" />
+        </label>
+
+        <label>
+          Senha
+          <input v-model="form.password" type="password" placeholder="Deixe vazio para manter a atual" />
+        </label>
+
+        <label>
+          Funcao
+          <input :value="form.role === 'admin' ? 'Administrador' : 'Usuário'" type="text" disabled />
+        </label>
+
+        <div v-if="formMessage.text" :class="['form-message', formMessage.type]">
+          {{ formMessage.text }}
+        </div>
+
         <button class="primary-button" type="submit">Salvar alteracoes</button>
       </form>
 
@@ -29,8 +126,8 @@
       <div class="settings-panel security">
         <h2>Seguranca da conta</h2>
         <p class="panel-text">Mantenha seus dados de acesso protegidos.</p>
-        <button class="outline-button" type="button">Alterar senha</button>
-        <button class="danger-button" type="button">Encerrar todas as sessoes</button>
+        <button class="outline-button" type="button" @click="form.password = ''">Limpar campo de senha</button>
+        <button class="danger-button" type="button" @click="logoutAll">Encerrar todas as sessoes</button>
       </div>
     </div>
   </section>
@@ -158,6 +255,21 @@ input:disabled {
 }
 .security {
   grid-column: 1 / -1;
+}
+.form-message {
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+}
+.form-message.error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+.form-message.success {
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  color: #a7f3d0;
 }
 @media (max-width: 700px) {
   .page-header { flex-direction: column; align-items: flex-start; }

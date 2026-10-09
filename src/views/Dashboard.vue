@@ -1,8 +1,12 @@
 <script setup>
 import { computed } from 'vue'
 import { usePlanilhaStore } from '@/stores/planilhaStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const store = usePlanilhaStore()
+const authStore = useAuthStore()
+
+const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 const totalFaturamento = computed(() => {
   return (store.dadosTratados || []).reduce((s, r) => s + (Number(r.faturamento_anual_num) || 0), 0)
@@ -10,13 +14,16 @@ const totalFaturamento = computed(() => {
 
 const clientesAtivos = computed(() => (store.dadosTratados || []).length)
 
-const planilhasProcessadas = computed(() => (store.dataUpload ? 1 : 0))
+const planilhasProcessadas = computed(() => {
+  if (Array.isArray(store.historico) && store.historico.length > 0) return store.historico.length
+  return store.dataUpload ? 1 : 0
+})
 
 const kpis = computed(() => [
   { label: 'Faturamento total', value: totalFaturamento.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), change: '', tone: 'success' },
   { label: 'Clientes ativos', value: String(clientesAtivos.value), change: '', tone: 'info' },
   { label: 'Planilhas processadas', value: String(planilhasProcessadas.value), change: '', tone: 'warning' },
-  { label: 'Contratacoes', value: '24', change: '+18,2%', tone: 'success' },
+  { label: 'Contratacoes', value: isAdmin.value ? '24' : '12', change: isAdmin.value ? '+18,2%' : '+9,4%', tone: 'success' },
 ])
 
 const levels = computed(() => {
@@ -44,7 +51,6 @@ const segments = computed(() => {
   return Object.entries(mapa).map(([label, value]) => ({ label, value: value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), width: Math.round((value / total) * 100) + '%' }))
 })
 
-// For the small line chart, produce a simple polyline based on last 8 months
 const pathForLineChart = computed(() => {
   const mapa = new Map()
   for (const row of store.dadosTratados || []) {
@@ -56,7 +62,7 @@ const pathForLineChart = computed(() => {
   }
   const entries = Array.from(mapa.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-8)
   if (!entries.length) return ''
-  // map values to vertical positions
+
   const values = entries.map(e => e[1])
   const max = Math.max(...values)
   const min = Math.min(...values)
@@ -69,10 +75,58 @@ const pathForLineChart = computed(() => {
     const y = Math.round(h - (norm * (h - 40)) - 20)
     return `${x} ${y}`
   })
-  // build smooth-ish path using simple polyline
-  const path = 'M' + points.map((p, i) => p.replace(' ', ',')).join(' L ')
-  return path
+
+  return 'M' + points.map((p) => p.replace(' ', ',')).join(' L ')
 })
+
+function exportRelatorio() {
+  const linhas = store.dadosTratados || []
+  if (!linhas.length) return
+
+  const colunas = Object.keys(linhas[0]).filter((coluna) => !['erros', 'numero_linha'].includes(coluna))
+
+  const html = `
+    <html>
+      <head>
+        <title>Relatório CTI</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
+          h1 { margin-bottom: 10px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+          th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; font-size: 12px; }
+          th { background: #f1f5f9; }
+          .meta { color: #475569; font-size: 12px; margin-bottom: 8px; }
+        </style>
+      </head>
+      <body>
+        <h1>Relatório CTI</h1>
+        <div class="meta">Gerado em: ${new Date().toLocaleString('pt-BR')}</div>
+        <table>
+          <thead>
+            <tr>${colunas.map((coluna) => `<th>${coluna}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+            ${linhas.map((linha) => `
+              <tr>
+                ${colunas.map((coluna) => `<td>${String(linha[coluna] ?? '').replace(/</g, '&lt;')}</td>`).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `
+
+  const printWindow = window.open('', '_blank', 'width=900,height=700')
+  if (!printWindow) return
+
+  printWindow.document.write(html)
+  printWindow.document.close()
+  printWindow.focus()
+  setTimeout(() => {
+    printWindow.print()
+  }, 300)
+}
 </script>
 
 <template>
@@ -83,51 +137,62 @@ const pathForLineChart = computed(() => {
         <h1>Visao geral</h1>
         <p class="subtitle">Acompanhe os principais indicadores da sua operacao.</p>
       </div>
-      <button class="primary-button" type="button">Exportar relatorio</button>
+      <button class="primary-button" type="button" :disabled="!store.dadosTratados.length" @click="exportRelatorio">
+        Exportar PDF
+      </button>
     </header>
 
-    <div class="kpi-grid">
-      <article v-for="kpi in kpis" :key="kpi.label" class="metric-card">
-        <span class="metric-label">{{ kpi.label }}</span>
-        <strong>{{ kpi.value }}</strong>
-        <small :class="kpi.tone">{{ kpi.change }}</small>
-      </article>
+    <div v-if="!store.dadosTratados.length" class="panel empty-panel">
+      <h2>Dados ainda não carregados</h2>
+      <p>
+        {{ isAdmin ? 'Faça o upload de uma planilha para visualizar os indicadores do painel.' : 'Aguardando envio da planilha pela equipe administrativa.' }}
+      </p>
     </div>
 
-    <div class="dashboard-grid">
-      <article class="panel chart-panel">
-        <div class="panel-heading">
-          <div><h2>Evolucao de faturamento</h2><p>Ultimos 8 meses</p></div>
-          <span class="chart-tag">2026</span>
-        </div>
-        <svg class="line-chart" viewBox="0 0 700 220" role="img" aria-label="Grafico de evolucao de faturamento">
-          <path :d="pathForLineChart" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
-          <path v-if="pathForLineChart" :d="pathForLineChart + ' L690 210 L15 210Z'" fill="url(#area)" opacity=".45" />
-          <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2563eb" stop-opacity=".28"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
-        </svg>
-        <div class="chart-axis"><span>Jan</span><span>Mar</span><span>Mai</span><span>Jul</span><span>Set</span><span>Nov</span></div>
-      </article>
+    <template v-else>
+      <div class="kpi-grid">
+        <article v-for="kpi in kpis" :key="kpi.label" class="metric-card">
+          <span class="metric-label">{{ kpi.label }}</span>
+          <strong>{{ kpi.value }}</strong>
+          <small :class="kpi.tone">{{ kpi.change }}</small>
+        </article>
+      </div>
 
-      <article class="panel">
-        <div class="panel-heading"><div><h2>Clientes por nivel</h2><p>Classificacao atual</p></div></div>
-        <div class="level-list">
-          <div v-for="level in levels" :key="level.label" class="level-row">
-            <div><span>{{ level.label }}</span><strong>{{ level.value }}%</strong></div>
-            <div class="progress"><i :style="{ width: level.value + '%', background: level.color }"></i></div>
+      <div class="dashboard-grid">
+        <article class="panel chart-panel">
+          <div class="panel-heading">
+            <div><h2>Evolucao de faturamento</h2><p>Ultimos 8 meses</p></div>
+            <span class="chart-tag">2026</span>
           </div>
-        </div>
-      </article>
+          <svg class="line-chart" viewBox="0 0 700 220" role="img" aria-label="Grafico de evolucao de faturamento">
+            <path :d="pathForLineChart" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
+            <path v-if="pathForLineChart" :d="pathForLineChart + ' L690 210 L15 210Z'" fill="url(#area)" opacity=".45" />
+            <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2563eb" stop-opacity=".28"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
+          </svg>
+          <div class="chart-axis"><span>Jan</span><span>Mar</span><span>Mai</span><span>Jul</span><span>Set</span><span>Nov</span></div>
+        </article>
 
-      <article class="panel segment-panel">
-        <div class="panel-heading"><div><h2>Faturamento por segmento</h2><p>Distribuicao por mercado</p></div></div>
-        <div class="segment-list">
-          <div v-for="segment in segments" :key="segment.label" class="segment-row">
-            <div><span>{{ segment.label }}</span><strong>{{ segment.value }}</strong></div>
-            <div class="progress"><i :style="{ width: segment.width }"></i></div>
+        <article class="panel">
+          <div class="panel-heading"><div><h2>Clientes por nivel</h2><p>Classificacao atual</p></div></div>
+          <div class="level-list">
+            <div v-for="level in levels" :key="level.label" class="level-row">
+              <div><span>{{ level.label }}</span><strong>{{ level.value }}%</strong></div>
+              <div class="progress"><i :style="{ width: level.value + '%', background: level.color }"></i></div>
+            </div>
           </div>
-        </div>
-      </article>
-    </div>
+        </article>
+
+        <article class="panel segment-panel">
+          <div class="panel-heading"><div><h2>Faturamento por segmento</h2><p>Distribuicao por mercado</p></div></div>
+          <div class="segment-list">
+            <div v-for="segment in segments" :key="segment.label" class="segment-row">
+              <div><span>{{ segment.label }}</span><strong>{{ segment.value }}</strong></div>
+              <div class="progress"><i :style="{ width: segment.width }"></i></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </template>
   </section>
 </template>
 

@@ -1,16 +1,18 @@
 <script setup>
 import { computed } from 'vue'
 import { usePlanilhaStore } from '@/stores/planilhaStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const store = usePlanilhaStore()
+const authStore = useAuthStore()
 
-// Helper to format currency
+const isAdmin = computed(() => authStore.user?.role === 'admin')
+
 const fmtBRL = (v) => {
   if (v == null || isNaN(v)) return 'R$ 0'
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-// 1) Evolução de faturamento por mês (group by month/year)
 const faturamentoPorMes = computed(() => {
   const mapa = new Map()
   for (const row of store.dadosTratados || []) {
@@ -20,12 +22,10 @@ const faturamentoPorMes = computed(() => {
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
     mapa.set(key, (mapa.get(key) || 0) + valor)
   }
-  // sort keys
   const entries = Array.from(mapa.entries()).sort((a, b) => a[0].localeCompare(b[0]))
   return entries.map(([k, v]) => ({ label: k, value: v }))
 })
 
-// 2) Clientes por nível
 const clientesPorNivel = computed(() => {
   const mapa = {}
   for (const row of store.dadosTratados || []) {
@@ -35,7 +35,6 @@ const clientesPorNivel = computed(() => {
   return Object.entries(mapa).map(([k, v]) => ({ label: k, value: v }))
 })
 
-// 3) Faturamento por segmento
 const faturamentoPorSegmento = computed(() => {
   const mapa = {}
   for (const row of store.dadosTratados || []) {
@@ -46,7 +45,6 @@ const faturamentoPorSegmento = computed(() => {
   return Object.entries(mapa).map(([k, v]) => ({ label: k, value: v }))
 })
 
-// 4) Faturamento por consultor (top 6)
 const faturamentoPorConsultor = computed(() => {
   const mapa = {}
   for (const row of store.dadosTratados || []) {
@@ -81,7 +79,14 @@ const charts = computed(() => {
       </select>
     </header>
 
-    <div class="stats-grid">
+    <div v-if="!store.dadosTratados.length" class="panel empty-panel">
+      <h2>Estatísticas indisponíveis</h2>
+      <p>
+        {{ isAdmin ? 'Faça o upload de uma planilha para gerar os gráficos analíticos.' : 'As métricas ficam disponíveis assim que a equipe administrativa carregar os dados.' }}
+      </p>
+    </div>
+
+    <div v-else class="stats-grid">
       <article v-for="chart in charts" :key="chart.title" class="chart-card">
         <h2>{{ chart.title }}</h2>
         <div class="fake-chart">
@@ -103,6 +108,28 @@ const charts = computed(() => {
   background: var(--color-app-bg);
   color: var(--color-body);
   padding: 32px 20px;
+}
+
+.panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
+}
+
+.empty-panel {
+  padding: 28px;
+  color: var(--color-body);
+}
+
+.empty-panel h2 {
+  margin: 0 0 8px;
+  color: var(--color-heading);
+}
+
+.empty-panel p {
+  margin: 0;
+  color: var(--color-muted);
 }
 
 .page-header {

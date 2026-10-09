@@ -68,9 +68,12 @@ async function enviarParaValidacao() {
 				<div class="upload-icon">↑</div>
 				<h2>Arraste sua planilha aqui</h2>
 				<p>ou selecione um arquivo do seu computador</p>
-				<input ref="fileInput" class="hidden-input" type="file" accept=".xlsx,.xls" aria-label="Selecionar planilha" @change="selectFile" />
-				<button class="primary-button" type="button" @click="openFilePicker">Selecionar arquivo</button>
-				<small class="file-hint">Formatos aceitos: .XLSX e .XLS · Limite de 10 MB</small>
+				<input ref="fileInput" class="hidden-input" type="file" accept=".xlsx,.xls,.csv" aria-label="Selecionar planilha" @change="selectFile" />
+				<div class="upload-actions">
+					<button class="primary-button" type="button" @click="openFilePicker">Selecionar arquivo</button>
+					<a class="secondary-button" href="/planilhas/modelo_clientes.csv" download="modelo_clientes.csv">Baixar modelo</a>
+				</div>
+				<small class="file-hint">Formatos aceitos: .XLSX, .XLS e .CSV · Limite de 10 MB</small>
 			</article>
 
 			<aside class="guide-card">
@@ -199,14 +202,41 @@ h1 { margin: 0; color: var(--color-heading); font-size: clamp(1.8rem, 4vw, 2.35r
 .upload-card h2, .guide-card h2 { margin: 0; color: var(--color-heading); font-size: 1.1rem; }
 .upload-card p { margin: 8px 0 22px; color: var(--color-muted); font-size: .88rem; }
 
-.primary-button {
+.upload-actions {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.primary-button, .secondary-button {
 	border: 0;
 	border-radius: 8px;
 	padding: 11px 18px;
-	background: var(--color-primary);
-	color: var(--color-primary-foreground);
 	font-weight: 700;
 	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	text-decoration: none;
+	transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.primary-button {
+	background: var(--color-primary);
+	color: var(--color-primary-foreground);
+}
+
+.secondary-button {
+	background: rgba(148, 163, 184, 0.12);
+	border: 1px solid rgba(148, 163, 184, 0.25);
+	color: var(--color-heading);
+}
+
+.primary-button:hover, .secondary-button:hover {
+	opacity: 0.96;
+	transform: translateY(-1px);
 }
 
 .primary-button:disabled {

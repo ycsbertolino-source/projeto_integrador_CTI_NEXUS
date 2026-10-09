@@ -1,13 +1,16 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const email = ref('')
 const password = ref('')
-const loading = ref(false)
 const errorMessage = ref('')
+
+const loading = computed(() => authStore.loading)
 
 const particles = ref([])
 const floatingCards = [
@@ -79,27 +82,34 @@ const resetPointer = () => {
 
 const handleLogin = async () => {
   errorMessage.value = ''
+  authStore.authError = ''
 
   if (!email.value || !password.value) {
-    errorMessage.value = 'Preencha todos os campos para continuar.'
+    authStore.authError = 'Preencha todos os campos para continuar.'
+    errorMessage.value = authStore.authError
     return
   }
 
-  try {
-    loading.value = true
+  const success = await authStore.login({
+    email: email.value,
+    password: password.value,
+  })
 
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    router.push('/app/upload')
-  } catch (error) {
-    errorMessage.value = error.message || 'Erro ao autenticar. Verifique suas credenciais.'
-  } finally {
-    loading.value = false
+  if (success) {
+    router.push({ name: 'upload' })
+    return
   }
+
+  errorMessage.value = authStore.authError || 'Erro ao autenticar. Verifique suas credenciais.'
 }
 
 onMounted(() => {
   createParticles()
+  authStore.checkAuth()
+
+  if (authStore.user) {
+    router.replace({ name: 'upload' })
+  }
 })
 
 onBeforeUnmount(() => {

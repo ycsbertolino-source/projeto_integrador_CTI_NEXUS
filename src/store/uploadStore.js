@@ -2,6 +2,9 @@
 
 import { defineStore } from 'pinia' 		// Importa a função defineStore da Pinia para gerenciar o estado global
 import * as XLSX from 'xlsx'			 // Importa a biblioteca SheetJS (xlsx) para leitura e manipulação de planilhas
+import { useAuthStore } from '@/stores/authStore'
+
+const HISTORY_KEY_PREFIX = 'cti_upload_history_'
 
 export const useUploadStore = defineStore('upload', {
 
@@ -13,7 +16,8 @@ export const useUploadStore = defineStore('upload', {
     dadosOriginais: [],     // Armazena os dados brutos convertidos diretamente do Excel
     dadosTratados: [],      // Armazena os dados após passarem por limpeza e validação
     erro: '',               // Armazena mensagens globais de erro (ex: formato inválido)
-    dataUpload: null        // Guarda a data e hora exatas em que o upload foi feito
+    dataUpload: null,       // Guarda a data e hora exatas em que o upload foi feito
+    historico: []           // Guarda o histórico de uploads por usuário
   }),
 
 
@@ -88,6 +92,76 @@ export const useUploadStore = defineStore('upload', {
   // =====================================================
   actions: {
 
+    getCurrentUserHistoryKey() {
+      const authStore = useAuthStore()
+      const user = authStore?.user
+      const value = user?.id ?? user?.email ?? 'guest'
+      return `${HISTORY_KEY_PREFIX}${String(value)}`
+    },
+
+    syncUserHistory() {
+      if (typeof window === 'undefined') {
+        this.historico = []
+        return this.historico
+      }
+
+      try {
+        const key = this.getCurrentUserHistoryKey()
+        const raw = localStorage.getItem(key)
+        const parsed = raw ? JSON.parse(raw) : []
+        this.historico = Array.isArray(parsed) ? parsed : []
+      } catch (error) {
+        console.error('Erro ao carregar histórico do usuário:', error)
+        this.historico = []
+      }
+
+      return this.historico
+    },
+
+    persistHistory() {
+      if (typeof window === 'undefined') return
+
+      const key = this.getCurrentUserHistoryKey()
+      localStorage.setItem(key, JSON.stringify(this.historico))
+    },
+
+    registrarUploadHistorico(nomeArquivo = this.arquivo?.name || 'Planilha') {
+      const total = this.dadosTratados.length
+      const validos = this.dadosTratados.filter((linha) => (linha.erros || []).length === 0).length
+      const invalidos = total - validos
+
+      const novoRegistro = {
+        id: Date.now() + Math.random(),
+        name: nomeArquivo,
+        uploadedAt: this.dataUpload || new Date().toISOString(),
+        total,
+        valid: validos,
+        invalid: invalidos,
+        createdAt: new Date().toISOString(),
+        dadosOriginais: JSON.parse(JSON.stringify(this.dadosOriginais || [])),
+        dadosTratados: JSON.parse(JSON.stringify(this.dadosTratados || [])),
+      }
+
+      this.historico = [novoRegistro, ...this.historico].slice(0, 20)
+      this.persistHistory()
+      return novoRegistro
+    },
+
+    carregarHistorico(item) {
+      if (!item) return false
+
+      const dadosTratados = Array.isArray(item.dadosTratados) ? item.dadosTratados : []
+      const dadosOriginais = Array.isArray(item.dadosOriginais) ? item.dadosOriginais : dadosTratados
+
+      this.arquivo = { name: item.name || 'Planilha' }
+      this.dadosOriginais = JSON.parse(JSON.stringify(dadosOriginais))
+      this.dadosTratados = JSON.parse(JSON.stringify(dadosTratados))
+      this.dataUpload = item.uploadedAt || item.createdAt || new Date().toISOString()
+      this.erro = ''
+
+      return true
+    },
+
     async lerArquivo(file) {
       this.erro = '' // Reseta a mensagem de erro global
       this.arquivo = file // Salva a referência do arquivo no estado
@@ -119,6 +193,7 @@ export const useUploadStore = defineStore('upload', {
         }
 
         this.tratarDados() // Chama o método responsável por higienizar e validar as linhas
+        this.registrarUploadHistorico(file.name)
       } catch (error) {
         console.error(error) // Exibe o erro técnico no console para debug
         this.erro = 'Não foi possível ler a planilha.' // Define mensagem amigável caso ocorra falha de leitura

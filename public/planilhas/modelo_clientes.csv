@@ -1,0 +1,9 @@
+codigo_cliente,nome_cliente,consultor,segmento,nivel_cliente,faturamento_anual,servicos_contratados,data_contratacao,cidade,uf
+CTI001,Alpha Pharma,João Silva,Indústria,A,"R$ 180.000,00","Consultoria, CRM, Suporte",01/01/2025,São Paulo,SP
+CTI002,Beta Logística,Marina Costa,Comércio,B,"R$ 120.500,00","CRM, SaaS",15/02/2025,Rio de Janeiro,RJ
+CTI003,Gamma Energia,Carlos Mendes,Serviços,A,"R$ 240.000,00","Consultoria, Operação",21/03/2025,Belo Horizonte,MG
+CTI004,Delta Tech,Patricia Nunes,Tecnologia,C,"R$ 90.000,00","Suporte",10/04/2025,Curitiba,PR
+CTI005,Omega Saúde,Renata Lima,Saúde,B,"R$ 170.250,00","Consultoria, CRM",05/05/2025,Porto Alegre,RS
+CTI006,Zeta Educação,Lucas Rocha,Educação,A,"R$ 200.000,00","SaaS, Operação",18/06/2025,Fortaleza,CE
+CTI007,Theta Retail,Ana Beatriz,Comércio,A,"R$ 260.400,00","Consultoria, CRM, Suporte",28/07/2025,Salvador,BA
+CTI008,Sigma Industrial,Elena Souza,Indústria,C,"R$ 75.000,00","Suporte",12/08/2025,Recife,PE
