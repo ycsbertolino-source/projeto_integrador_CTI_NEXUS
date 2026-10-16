@@ -179,19 +179,12 @@ onBeforeUnmount(() => {
     </div>
 
     <header class="w-full max-w-[1180px] mx-auto px-6 h-[76px] flex items-center justify-between relative z-10">
-      <router-link to="/" class="flex items-center gap-3">
-        <svg viewBox="0 0 100 100" class="w-[30px] h-[30px]" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="g1" x1="0" y1="100" x2="100" y2="0">
-              <stop offset="0%" stop-color="#2563EB" />
-              <stop offset="100%" stop-color="#10B981" />
-            </linearGradient>
-          </defs>
-          <path d="M10 30 L10 85 L30 85 L30 55 L48 73 L48 55 L30 37 L30 30 Z" fill="white" opacity="0.95" />
-          <path d="M48 55 L48 73 L66 85 L66 55 L48 37 Z" fill="white" opacity="0.95" />
-          <path d="M8 48 L48 8 L70 30 L88 12 L88 38 L62 38 L74 26 L48 26 L28 46 Z" fill="url(#g1)" />
-        </svg>
-        <span class="font-display font-bold text-lg text-white">CTI Nexus</span>
+      <router-link to="/" class="brand-lockup flex items-center gap-3">
+        <div class="brand-mark">C</div>
+        <div class="brand-copy">
+          <span class="brand-top">CTI</span>
+          <span class="brand-bottom">Nexus</span>
+        </div>
       </router-link>
 
       <router-link to="/" class="text-sm text-slate-400 hover:text-white transition-colors">
@@ -251,9 +244,13 @@ onBeforeUnmount(() => {
           </button>
         </form>
 
-        <div class="mt-6 text-center">
+        <div class="mt-6 text-center space-y-2">
           <p class="text-slate-400 text-xs">
             Precisa de ajuda? <a href="#" class="text-blue-400 hover:text-blue-300">Contato do suporte</a>
+          </p>
+          <p class="text-slate-400 text-xs">
+            Ainda não tem conta?
+            <router-link to="/cadastro" class="text-blue-400 hover:text-blue-300">Cadastre-se</router-link>
           </p>
         </div>
       </div>
@@ -323,6 +320,51 @@ onBeforeUnmount(() => {
   height: 6px;
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.17);
+}
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+  color: #f8fafc;
+  font-size: 1.2rem;
+  font-weight: 800;
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.35);
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 0.9;
+}
+
+.brand-top,
+.brand-bottom {
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.brand-top {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.brand-bottom {
+  font-size: 1.15rem;
+  letter-spacing: -0.04em;
 }
 
 .sheet-card strong {

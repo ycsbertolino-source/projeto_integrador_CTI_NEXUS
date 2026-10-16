@@ -16,7 +16,7 @@ function handleLogout() {
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="brand-mark">C</div>
-        <div>
+        <div class="brand-copy">
           <p class="brand-label">CTI</p>
           <h2>Nexus</h2>
         </div>
@@ -86,21 +86,28 @@ function handleLogout() {
   border-radius: 12px;
   background: linear-gradient(135deg, #2563eb, #10b981);
   color: white;
+  font-size: 1.2rem;
   font-weight: 800;
   box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 0.9;
 }
 
 .brand-label {
   margin: 0;
   font-size: 0.62rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #8ea8d1;
 }
 
 .sidebar-header h2 {
   margin: 2px 0 0;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   color: #f8fafc;
 }
 

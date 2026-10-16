@@ -10,9 +10,10 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "axios": "^1.20.0",
+    "lucide-vue-next": "^0.263.0",
     "pinia": "^4.0.3",
     "tailwindcss": "^4.3.3",
-    "lucide-vue-next": "^0.263.0",
     "vue": "^3.5.40",
     "vue-router": "^4.6.4",
     "xlsx": "^0.18.5"

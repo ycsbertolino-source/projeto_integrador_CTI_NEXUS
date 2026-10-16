@@ -41,7 +41,7 @@ const normalizeUser = (user) => ({
   email: String(user.email || '').trim().toLowerCase(),
   password: String(user.password || ''),
   role: user.role === 'admin' ? 'admin' : 'user',
-  status: user.status || 'Ativo',
+  status: user.status === 'Pendente' ? 'Pendente' : 'Ativo',
   lastAccess: user.lastAccess || 'Nunca',
 })
 
@@ -98,6 +98,20 @@ export const useAuthStore = defineStore('auth', {
       if (!foundUser || foundUser.password !== String(password)) {
         this.user = null
         this.authError = 'E-mail ou senha inválidos.'
+        this.loading = false
+
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(STORAGE_KEY)
+        }
+
+        return false
+      }
+
+      if (foundUser.status !== 'Ativo') {
+        this.user = null
+        this.authError = foundUser.status === 'Pendente'
+          ? 'Seu acesso está pendente de aprovação. Aguarde a liberação do administrador.'
+          : 'Seu acesso foi bloqueado.'
         this.loading = false
 
         if (typeof window !== 'undefined') {
@@ -174,6 +188,13 @@ export const useAuthStore = defineStore('auth', {
           const storedUser = this.users.find((user) => user.email === parsedUser.email)
 
           if (storedUser) {
+            if (storedUser.status !== 'Ativo') {
+              localStorage.removeItem(STORAGE_KEY)
+              this.user = null
+              this.loading = false
+              return false
+            }
+
             this.user = {
               id: storedUser.id,
               name: storedUser.name,
@@ -211,7 +232,7 @@ export const useAuthStore = defineStore('auth', {
         email: String(payload?.email || '').trim().toLowerCase(),
         password: String(payload?.password || '').trim(),
         role: payload?.role === 'admin' ? 'admin' : 'user',
-        status: payload?.status || 'Ativo',
+        status: payload?.status === 'Ativo' || payload?.status === 'Pendente' ? payload.status : 'Pendente',
       }
 
       if (!data.name || !data.email || !data.password) {

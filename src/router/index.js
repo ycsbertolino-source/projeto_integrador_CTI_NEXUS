@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 // Layouts e Páginas Públicas
 import HomeView from '../views/Home.vue'
 import LoginView from '../views/Login.vue'
+import CadastroView from '../views/Cadastro.vue'
 import AppLayout from '../Layouts/AppLayout.vue'
 
 // Layout e Páginas do Painel Interno
@@ -28,6 +29,11 @@ const routes = [
     name: 'login',
     component: LoginView,
   },
+  {
+    path: '/cadastro',
+    name: 'cadastro',
+    component: CadastroView,
+  },
   // Rota Pai do Painel Interno (Contém a Sidebar e o Header)
   {
     path: '/app',
@@ -40,10 +46,11 @@ const routes = [
       { path: 'relatorio', name: 'relatorio', component: Relatorio, meta: { requiresAuth: true } },
       { path: 'relatorios', name: 'relatorios', component: Relatorios, meta: { requiresAuth: true } },
       { path: 'graficos', name: 'statistics', component: Statistics, meta: { requiresAuth: true } },
-      { path: 'usuarios', name: 'users', component: Users, meta: { requiresAuth: true, requiresRole: 'admin' } },
-      { path: 'usuarios/novo', name: 'user-create', component: UserCreate, meta: { requiresAuth: true, requiresRole: 'admin' } },
-      { path: 'usuarios/:id/editar', name: 'user-edit', component: UserCreate, meta: { requiresAuth: true, requiresRole: 'admin' } },
       { path: 'configuracoes', name: 'settings', component: Settings, meta: { requiresAuth: true } },
+
+      { path: 'usuarios', name: 'users', component: Users, meta: { requiresAuth: true, admin: true } },
+      { path: 'usuarios/novo', name: 'user-create', component: UserCreate, meta: { requiresAuth: true, admin: true } },
+      { path: 'usuarios/:id/editar', name: 'user-edit', component: UserCreate, meta: { requiresAuth: true, admin: true } },
     ],
   },
 ]
@@ -57,21 +64,21 @@ router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   authStore.checkAuth()
 
-  const isAuthenticated = !!authStore.user
-  const requiresAuth = Boolean(to.meta?.requiresAuth)
-  const requiredRole = to.meta?.requiresRole
+  const user = authStore.user
+  const needsAuth = Boolean(to.meta?.requiresAuth)
+  const adminOnly = Boolean(to.meta?.admin)
 
-  if (requiresAuth && !isAuthenticated) {
+  if (needsAuth && !user) {
     next({ name: 'login' })
     return
   }
 
-  if (requiredRole && authStore.user?.role !== requiredRole) {
+  if (adminOnly && user?.role !== 'admin') {
     next({ name: 'upload' })
     return
   }
 
-  if (to.name === 'login' && isAuthenticated) {
+  if (to.name === 'login' && user) {
     next({ name: 'upload' })
     return
   }
