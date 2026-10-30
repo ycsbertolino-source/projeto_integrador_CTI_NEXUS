@@ -57,65 +57,64 @@ function voltarParaUpload() {
 </script>
 
 <template>
-  <main class="p-4 sm:p-6 max-w-5xl mx-auto w-full">
-    <button
-      type="button"
-      class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-3"
-      @click="voltarParaUpload"
-    >
-      <ArrowLeft class="h-4 w-4" /> Voltar para Upload
+  <section class="report-page">
+    <button type="button" class="back-link" @click="voltarParaUpload">
+      <ArrowLeft class="icon-sm" /> Voltar para Upload
     </button>
 
-    <h1 class="text-xl sm:text-2xl font-bold text-slate-800 mb-1">Relatório de Validação</h1>
-    <p class="text-sm text-slate-500 mb-6">
-      Arquivo <span class="font-medium text-slate-700">{{ store.arquivo?.name || '—' }}</span>
-      · enviado em {{ dataUploadFormatada }}
-    </p>
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Validação</p>
+        <h1>Relatório de Validação</h1>
+        <p class="subtitle">
+          Arquivo <strong>{{ store.arquivo?.name || '—' }}</strong> · enviado em {{ dataUploadFormatada }}
+        </p>
+      </div>
+      <span class="step-label">Etapa 02 <small>de 02</small></span>
+    </header>
 
-    <div v-if="!store.dadosTratados.length" class="bg-white border border-slate-200 rounded-xl shadow-sm p-10 text-center text-slate-400">
+    <div v-if="!store.dadosTratados.length" class="panel empty-panel">
       Nenhuma planilha processada ainda.
-      <button type="button" class="text-blue-600 hover:text-blue-700 font-medium ml-1" @click="voltarParaUpload">
-        Ir para o Upload
-      </button>
+      <button type="button" class="link-button" @click="voltarParaUpload">Ir para o Upload</button>
     </div>
 
     <template v-else>
       <!-- Cards de resumo -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex flex-col gap-2">
-          <FileSpreadsheet class="h-5 w-5 text-slate-400" />
-          <p class="text-xl font-bold text-slate-800">{{ store.totalLinhas }}</p>
-          <p class="text-xs text-slate-500">Total de registros</p>
+      <div class="stats-grid">
+        <div class="panel stat-card">
+          <FileSpreadsheet class="icon tone-neutral" />
+          <p class="stat-value">{{ store.totalLinhas }}</p>
+          <p class="stat-label">Total de registros</p>
         </div>
-        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex flex-col gap-2">
-          <CheckCircle2 class="h-5 w-5 text-teal-600" />
-          <p class="text-xl font-bold text-slate-800">{{ store.totalValidas }}</p>
-          <p class="text-xs text-slate-500">Registros válidos</p>
+        <div class="panel stat-card">
+          <CheckCircle2 class="icon tone-success" />
+          <p class="stat-value">{{ store.totalValidas }}</p>
+          <p class="stat-label">Registros válidos</p>
         </div>
-        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex flex-col gap-2">
-          <AlertTriangle class="h-5 w-5 text-amber-500" />
-          <p class="text-xl font-bold text-slate-800">{{ store.totalComErro }}</p>
-          <p class="text-xs text-slate-500">Linhas com erro</p>
+        <div class="panel stat-card">
+          <AlertTriangle class="icon tone-warning" />
+          <p class="stat-value">{{ store.totalComErro }}</p>
+          <p class="stat-label">Linhas com erro</p>
         </div>
-        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex flex-col gap-2">
-          <LayoutGrid class="h-5 w-5 text-blue-600" />
-          <p class="text-xl font-bold text-slate-800">{{ store.totalColunas }}</p>
-          <p class="text-xs text-slate-500">Colunas identificadas</p>
+        <div class="panel stat-card">
+          <LayoutGrid class="icon tone-info" />
+          <p class="stat-value">{{ store.totalColunas }}</p>
+          <p class="stat-label">Colunas identificadas</p>
         </div>
       </div>
 
       <!-- Etapa 02: envia só as linhas válidas ao backend (que repassa ao Python) -->
-      <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5 mb-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="panel send-panel">
+        <div class="send-row">
           <div>
-            <h2 class="text-sm font-semibold text-slate-800">Enviar para o banco de dados</h2>
-            <p class="text-xs text-slate-500 mt-1">
+            <h2>Enviar para o banco de dados</h2>
+            <p class="panel-text">
               Somente as {{ store.totalValidas }} linhas válidas serão enviadas. As linhas com erro ficam de fora.
             </p>
           </div>
           <button
             type="button"
-            class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="primary-button"
             :disabled="store.enviando || !store.totalValidas || Boolean(store.resultadoEnvio)"
             @click="store.enviarValidadas()"
           >
@@ -123,74 +122,57 @@ function voltarParaUpload() {
           </button>
         </div>
 
-        <p v-if="store.erroEnvio" class="mt-3 text-sm font-medium text-red-600">{{ store.erroEnvio }}</p>
+        <p v-if="store.erroEnvio" class="alert alert-error">{{ store.erroEnvio }}</p>
 
-        <div v-if="store.resultadoEnvio" class="mt-4 rounded-lg bg-teal-50 p-4 text-sm text-teal-800">
-          <p class="font-semibold">Planilha processada!</p>
-          <p class="mt-1">
+        <div v-if="store.resultadoEnvio" class="alert alert-success">
+          <strong>Planilha processada!</strong>
+          <p>
             {{ store.resultadoEnvio.linhasValidas }} linhas gravadas ·
             {{ store.resultadoEnvio.linhasInvalidas }} rejeitadas ·
             {{ store.resultadoEnvio.linhasComAviso }} com aviso
           </p>
-          <ul v-if="store.resultadoEnvio.rejeitadas?.length" class="mt-2 list-disc pl-5 text-amber-800">
+          <ul v-if="store.resultadoEnvio.rejeitadas?.length" class="rejected-list">
             <li v-for="(motivo, i) in store.resultadoEnvio.rejeitadas" :key="i">{{ motivo }}</li>
           </ul>
         </div>
       </div>
 
       <!-- Tabela resumo por tipo de validação -->
-      <div class="bg-white border border-slate-200 rounded-xl shadow-sm mb-6">
-        <div class="px-5 py-4 border-b border-slate-200">
-          <h2 class="text-sm font-semibold text-slate-800">Validação realizada</h2>
-        </div>
-        <table class="w-full text-sm">
+      <div class="panel">
+        <div class="panel-heading"><h2>Validação realizada</h2></div>
+        <table>
           <thead>
-            <tr class="text-left text-slate-500 border-b border-slate-200">
-              <th class="px-5 py-2 font-medium">Campo</th>
-              <th class="px-5 py-2 font-medium">Quantidade</th>
-            </tr>
+            <tr><th>Campo</th><th>Quantidade</th></tr>
           </thead>
           <tbody>
-            <tr v-for="item in resumoPorTipo" :key="item.campo" class="border-b border-slate-100 last:border-0">
-              <td class="px-5 py-2 text-slate-700">{{ item.campo }}</td>
-              <td class="px-5 py-2 text-slate-700 font-medium">{{ item.quantidade }}</td>
+            <tr v-for="item in resumoPorTipo" :key="item.campo">
+              <td>{{ item.campo }}</td>
+              <td class="strong tone-warning">{{ item.quantidade }}</td>
             </tr>
             <tr>
-              <td class="px-5 py-2 text-slate-700 font-medium">Registros válidos</td>
-              <td class="px-5 py-2 text-teal-600 font-semibold">{{ store.totalValidas }}</td>
+              <td class="strong">Registros válidos</td>
+              <td class="strong tone-success">{{ store.totalValidas }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <!-- Detalhe linha a linha dos erros -->
-      <div class="bg-white border border-slate-200 rounded-xl shadow-sm">
-        <div class="px-5 py-4 border-b border-slate-200">
-          <h2 class="text-sm font-semibold text-slate-800">Detalhamento dos erros</h2>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
+      <div class="panel">
+        <div class="panel-heading"><h2>Detalhamento dos erros</h2></div>
+        <div class="table-scroll">
+          <table>
             <thead>
-              <tr class="text-left text-slate-500 border-b border-slate-200">
-                <th class="px-5 py-2 font-medium">Linha</th>
-                <th class="px-5 py-2 font-medium">Campo</th>
-                <th class="px-5 py-2 font-medium">Descrição</th>
-              </tr>
+              <tr><th>Linha</th><th>Campo</th><th>Descrição</th></tr>
             </thead>
             <tbody>
-              <tr v-for="(erro, i) in errosDetalhados" :key="i" class="border-b border-slate-100 last:border-0">
-                <td class="px-5 py-2 text-slate-500">{{ erro.numeroLinha }}</td>
-                <td class="px-5 py-2">
-                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
-                    {{ erro.campo }}
-                  </span>
-                </td>
-                <td class="px-5 py-2 text-slate-500">{{ erro.mensagem }}</td>
+              <tr v-for="(erro, i) in errosDetalhados" :key="i">
+                <td class="muted">{{ erro.numeroLinha }}</td>
+                <td><span class="field-tag">{{ erro.campo }}</span></td>
+                <td>{{ erro.mensagem }}</td>
               </tr>
               <tr v-if="errosDetalhados.length === 0">
-                <td colspan="3" class="px-5 py-8 text-center text-slate-400">
-                  Nenhum erro encontrado 🎉
-                </td>
+                <td colspan="3" class="empty-row">Nenhum erro encontrado 🎉</td>
               </tr>
             </tbody>
           </table>
@@ -198,29 +180,159 @@ function voltarParaUpload() {
       </div>
 
       <!-- Linhas totalmente válidas, pra conferência -->
-      <div v-if="store.linhasValidas.length" class="bg-white border border-slate-200 rounded-xl shadow-sm mt-6">
-        <div class="px-5 py-4 border-b border-slate-200">
-          <h2 class="text-sm font-semibold text-slate-800">Registros válidos</h2>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
+      <div v-if="store.linhasValidas.length" class="panel">
+        <div class="panel-heading"><h2>Registros válidos</h2></div>
+        <div class="table-scroll">
+          <table>
             <thead>
-              <tr class="text-left text-slate-500 border-b border-slate-200">
-                <th v-for="coluna in store.colunas" :key="coluna" class="px-5 py-2 font-medium whitespace-nowrap">
-                  {{ coluna }}
-                </th>
+              <tr>
+                <th v-for="coluna in store.colunas" :key="coluna" class="nowrap">{{ coluna }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(linha, i) in store.linhasValidas" :key="i" class="border-b border-slate-100 last:border-0">
-                <td v-for="coluna in store.colunas" :key="coluna" class="px-5 py-2 text-slate-600 whitespace-nowrap">
-                  {{ linha[coluna] }}
-                </td>
+              <tr v-for="(linha, i) in store.linhasValidas" :key="i">
+                <td v-for="coluna in store.colunas" :key="coluna" class="nowrap">{{ linha[coluna] }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
     </template>
-  </main>
+  </section>
 </template>
+
+<style scoped>
+.report-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--color-app-bg);
+  color: var(--color-body);
+  padding: 32px 20px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: .85rem;
+  cursor: pointer;
+}
+.back-link:hover { color: var(--color-heading); }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.eyebrow {
+  margin: 0 0 8px;
+  color: #60a5fa;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+h1 { margin: 0; color: var(--color-heading); font-size: clamp(1.8rem, 4vw, 2.35rem); }
+.subtitle { color: var(--color-muted); margin: 8px 0 0; font-size: .88rem; }
+.subtitle strong { color: var(--color-body); font-weight: 600; }
+.step-label { color: #93c5fd; font-size: .82rem; font-weight: 700; white-space: nowrap; }
+.step-label small { color: var(--color-muted); font-weight: 500; }
+
+.panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.panel h2 { margin: 0; color: var(--color-heading); font-size: .95rem; }
+.panel-text { margin: 6px 0 0; color: var(--color-muted); font-size: .8rem; }
+.panel-heading { padding: 16px 20px; border-bottom: 1px solid var(--color-border-muted); }
+
+.empty-panel { padding: 40px; text-align: center; color: var(--color-muted); }
+.link-button { border: 0; background: transparent; color: #7dd3fc; font-weight: 700; cursor: pointer; margin-left: 4px; }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.stat-card { display: grid; gap: 6px; padding: 18px; }
+.stat-value { margin: 4px 0 0; color: var(--color-heading); font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+.stat-label { margin: 0; color: var(--color-muted); font-size: .76rem; }
+
+.icon { width: 22px; height: 22px; }
+.icon-sm { width: 16px; height: 16px; }
+.tone-neutral { color: var(--color-muted); }
+.tone-success { color: #34d399; }
+.tone-warning { color: #fbbf24; }
+.tone-info { color: #60a5fa; }
+
+.send-panel { padding: 20px; }
+.send-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+
+.primary-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 18px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.primary-button:hover:not(:disabled) { transform: translateY(-1px); }
+.primary-button:disabled { opacity: .45; cursor: not-allowed; }
+
+.alert { margin: 14px 0 0; padding: 12px 14px; border-radius: 8px; font-size: .84rem; }
+.alert p { margin: 4px 0 0; }
+.alert-error { color: #fecaca; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); }
+.alert-success { color: #a7f3d0; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); }
+.rejected-list { margin: 8px 0 0; padding-left: 18px; color: #fde68a; }
+
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: .84rem; }
+th {
+  padding: 12px 20px;
+  color: var(--color-muted);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border-muted);
+}
+td { padding: 12px 20px; color: var(--color-body); border-bottom: 1px solid var(--color-border-muted); }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(148, 163, 184, 0.04); }
+.strong { font-weight: 700; }
+.muted { color: var(--color-muted); }
+.nowrap { white-space: nowrap; }
+.empty-row { padding: 32px; text-align: center; color: var(--color-muted); }
+
+.field-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  font-size: .72rem;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .page-header, .send-row { flex-direction: column; align-items: stretch; }
+  .primary-button { width: 100%; }
+}
+</style>

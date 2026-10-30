@@ -232,9 +232,12 @@ export const useUploadStore = defineStore('upload', {
 
       try {
         const buffer = await file.arrayBuffer() // Converte o arquivo carregado em um buffer binário ArrayBuffer
-        // No CSV, raw: true mantém o texto como está. Sem isso o SheetJS lê "05/03/2021"
-        // no formato americano (mês/dia) e a data vira 3 de maio em vez de 5 de março.
-        const workbook = XLSX.read(buffer, { type: 'array', raw: extensao === 'csv' }) // Lê o arquivo binário usando a biblioteca SheetJS
+
+        // CSV: lê como texto UTF-8 (senão "Indústria" vira "IndÃºstria" e "R$ 1.850,00" vira "R$Â 1.850,00")
+        // e com raw: true (senão "05/03/2021" é lido como mês/dia e vira 3 de maio).
+        const workbook = extensao === 'csv'
+          ? XLSX.read(new TextDecoder('utf-8').decode(buffer).replace(/^﻿/, ''), { type: 'string', raw: true })
+          : XLSX.read(buffer, { type: 'array' }) // Lê o arquivo binário usando a biblioteca SheetJS
 
         const nomeAba = workbook.SheetNames[0] // Identifica o nome da primeira aba da planilha
         const worksheet = workbook.Sheets[nomeAba] // Obtém os dados da primeira aba
@@ -331,7 +334,11 @@ export const useUploadStore = defineStore('upload', {
         } else {
           let valor = novaLinha.faturamento_anual
           if (typeof valor === 'string') {
-            valor = valor.replace('R$', '').trim().replace(/\s/g, '').replace(/\./g, '').replace(',', '.') // Converte formato textual brasileiro para número puro
+            // Mesma regra do backend: aceita 1850000 · 1850000.50 · 1.850.000,50 · R$ 1.850.000,50
+            valor = valor.replace('R$', '').replace(/[^\d,.-]/g, '') // descarta espaços e símbolos
+            if (valor.includes(',')) valor = valor.replace(/\./g, '').replace(',', '.') // formato brasileiro
+            else if (valor.indexOf('.') !== valor.lastIndexOf('.')) valor = valor.replace(/\./g, '') // 1.850.000
+            if (valor === '') valor = 'x' // só símbolos: força "inválido"
           }
           const numero = Number(valor)
           if (isNaN(numero)) {
