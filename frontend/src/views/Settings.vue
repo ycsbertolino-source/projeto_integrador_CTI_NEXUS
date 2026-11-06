@@ -1,17 +1,72 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-// Dados vêm do backend (GET /api/auth/me); a API ainda não tem rota para editar o perfil
+// Dados vêm do backend (GET /api/auth/me). Nome e e-mail só o administrador altera.
 const profile = computed(() => ({
   name: authStore.user?.name || '',
   email: authStore.user?.email || '',
   role: authStore.user?.role || 'user',
 }))
+
+// ---- Trocar senha (PATCH /api/auth/senha) ----
+const senha = ref({ atual: '', nova: '', confirmar: '' })
+const senhaMsg = ref({ type: '', text: '' })
+const salvandoSenha = ref(false)
+
+async function trocarSenha() {
+  senhaMsg.value = { type: '', text: '' }
+  const { atual, nova, confirmar } = senha.value
+  if (!atual || !nova || !confirmar) {
+    senhaMsg.value = { type: 'error', text: 'Preencha os três campos.' }
+    return
+  }
+  // Mesma regra do backend: 8 a 72 caracteres, com letras e números
+  if (!/^(?=.*[A-Za-z])(?=.*\d).{8,72}$/.test(nova)) {
+    senhaMsg.value = { type: 'error', text: 'A nova senha deve ter de 8 a 72 caracteres, com letras e números.' }
+    return
+  }
+  if (nova !== confirmar) {
+    senhaMsg.value = { type: 'error', text: 'A confirmação não é igual à nova senha.' }
+    return
+  }
+  salvandoSenha.value = true
+  const result = await authStore.trocarSenha(atual, nova)
+  salvandoSenha.value = false
+  senhaMsg.value = { type: result.ok ? 'success' : 'error', text: result.message }
+  if (result.ok) senha.value = { atual: '', nova: '', confirmar: '' }
+}
+
+// ---- Preferências de notificação: ficam salvas neste navegador, por usuário ----
+const PADRAO = { processamento: true, resumoSemanal: true, seguranca: true }
+const chavePrefs = computed(() => `cti_prefs_${authStore.user?.id ?? 'guest'}`)
+const prefs = ref({ ...PADRAO })
+const prefsSalvas = ref(false)
+
+function carregarPrefs() {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(chavePrefs.value) || 'null')
+    prefs.value = { ...PADRAO, ...(salvo || {}) }
+  } catch (error) {
+    prefs.value = { ...PADRAO }
+  }
+}
+carregarPrefs()
+watch(chavePrefs, carregarPrefs)
+
+let aviso = null
+watch(prefs, (valor) => {
+  try {
+    localStorage.setItem(chavePrefs.value, JSON.stringify(valor))
+    prefsSalvas.value = true
+    clearTimeout(aviso)
+    aviso = setTimeout(() => { prefsSalvas.value = false }, 1500)
+  } catch (error) { /* navegador sem armazenamento: só não salva */ }
+}, { deep: true })
 
 const logoutAll = () => {
   authStore.logout()
@@ -32,7 +87,7 @@ const logoutAll = () => {
     <div class="settings-grid">
       <div class="settings-panel">
         <h2>Dados do perfil</h2>
-        <p class="panel-text">Para alterar nome, e-mail ou senha, fale com o administrador.</p>
+        <p class="panel-text">Para alterar nome ou e-mail, fale com o administrador.</p>
 
         <label>
           Nome completo
@@ -52,13 +107,39 @@ const logoutAll = () => {
 
       <div class="settings-panel">
         <h2>Notificacoes</h2>
-        <p class="panel-text">Escolha quais atualizacoes deseja receber.</p>
-        <label class="toggle-row"><span><strong>Processamento concluido</strong><small>Receber aviso quando uma planilha terminar.</small></span><input type="checkbox" checked /></label>
-        <label class="toggle-row"><span><strong>Resumo semanal</strong><small>Receber um resumo dos principais indicadores.</small></span><input type="checkbox" checked /></label>
-        <label class="toggle-row"><span><strong>Alertas de seguranca</strong><small>Notificacoes sobre acessos e alteracoes.</small></span><input type="checkbox" checked /></label>
+        <p class="panel-text">
+          Escolha quais atualizacoes deseja receber. Fica salvo neste navegador.
+          <span v-if="prefsSalvas" class="saved-tag">Salvo</span>
+        </p>
+        <label class="toggle-row"><span><strong>Processamento concluido</strong><small>Receber aviso quando uma planilha terminar.</small></span><input v-model="prefs.processamento" type="checkbox" /></label>
+        <label class="toggle-row"><span><strong>Resumo semanal</strong><small>Receber um resumo dos principais indicadores.</small></span><input v-model="prefs.resumoSemanal" type="checkbox" /></label>
+        <label class="toggle-row"><span><strong>Alertas de seguranca</strong><small>Notificacoes sobre acessos e alteracoes.</small></span><input v-model="prefs.seguranca" type="checkbox" /></label>
       </div>
 
-      <div class="settings-panel security">
+      <form class="settings-panel" @submit.prevent="trocarSenha">
+        <h2>Trocar senha</h2>
+        <p class="panel-text">A nova senha deve ter de 8 a 72 caracteres, com letras e números.</p>
+
+        <label>
+          Senha atual
+          <input v-model="senha.atual" type="password" autocomplete="current-password" />
+        </label>
+        <label>
+          Nova senha
+          <input v-model="senha.nova" type="password" autocomplete="new-password" />
+        </label>
+        <label>
+          Confirmar nova senha
+          <input v-model="senha.confirmar" type="password" autocomplete="new-password" />
+        </label>
+
+        <p v-if="senhaMsg.text" :class="['form-message', senhaMsg.type]">{{ senhaMsg.text }}</p>
+        <button class="primary-button" type="submit" :disabled="salvandoSenha">
+          {{ salvandoSenha ? 'Salvando...' : 'Salvar nova senha' }}
+        </button>
+      </form>
+
+      <div class="settings-panel">
         <h2>Seguranca da conta</h2>
         <p class="panel-text">Mantenha seus dados de acesso protegidos.</p>
         <button class="danger-button" type="button" @click="logoutAll">Sair desta sessao</button>
@@ -187,8 +268,14 @@ input:disabled {
   height: 18px;
   accent-color: #60a5fa;
 }
-.security {
-  grid-column: 1 / -1;
+.saved-tag {
+  margin-left: 6px;
+  color: #34d399;
+  font-weight: 700;
+}
+.primary-button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
 }
 .form-message {
   border-radius: 8px;
@@ -208,7 +295,6 @@ input:disabled {
 @media (max-width: 700px) {
   .page-header { flex-direction: column; align-items: flex-start; }
   .settings-grid { grid-template-columns: 1fr; }
-  .security { grid-column: auto; }
   .primary-button, .outline-button, .danger-button { width: 100%; }
 }
 </style>

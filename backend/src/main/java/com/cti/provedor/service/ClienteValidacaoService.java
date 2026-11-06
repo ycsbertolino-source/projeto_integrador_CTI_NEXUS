@@ -14,6 +14,7 @@ import static com.cti.provedor.service.Colunas.TODAS;
 import static com.cti.provedor.service.Colunas.UF;
 
 import com.cti.provedor.dto.ClienteDTO;
+import com.cti.provedor.dto.LinhaPlanilha;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -23,6 +24,7 @@ import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -32,9 +34,75 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
-/** Para cada linha: limpa o texto, confere obrigatórios, código e segmento. Erro bloqueia; aviso não. */
-@Service
-public class ClienteValidacaoService {
+/**
+ * Validações que dependem do lote: o DTO valida uma linha, o Service olha a lista inteira.
+ * - validarEPreparar: rota da aula POST /api/clientes/validar (duplicidade + padronização).
+ * - validar: usado pelo upload completo (/api/uploads/validadas), que depois segue para o Python.
+ */
+@Service // o Spring cria esta classe automaticamente
+public class ClienteValidacaoService { // classe de regras complementares
+
+    // =====================================================================
+    // ETAPA DA AULA: DTO já validado pelo @Valid -> verifica lote e padroniza
+    // =====================================================================
+
+    public List<ClienteDTO> validarEPreparar(List<ClienteDTO> clientes) { // recebe lista do controller
+        if (clientes == null || clientes.isEmpty()) { // lista vazia não tem o que validar
+            throw new IllegalArgumentException("Envie pelo menos um cliente para validar"); // erro claro
+        } // fim do if
+
+        Set<String> codigos = new HashSet<>(); // guarda códigos já encontrados
+
+        for (ClienteDTO cliente : clientes) { // percorre cada cliente recebido
+            String codigo = cliente.codigoCliente().trim().toUpperCase(Locale.ROOT); // remove espaços (CTI001 = cti001)
+            if (!codigos.add(codigo)) { // se já existe, é repetido
+                throw new IllegalArgumentException("Código repetido na planilha: " + codigo); // erro claro
+            } // fim do if
+        } // fim do for
+
+        return clientes.stream() // transforma a lista em fluxo de processamento
+                .map(this::padronizar) // aplica padronização em cada cliente
+                .toList(); // volta para lista
+    } // fim do método validarEPreparar
+
+    private ClienteDTO padronizar(ClienteDTO c) { // método privado para limpar uma linha
+        return new ClienteDTO( // cria um novo DTO já preparado
+                c.codigoCliente().trim().toUpperCase(Locale.ROOT), // remove espaços do código
+                c.nomeCliente().trim(), // remove espaços do nome
+                formatarNome(c.consultor()), // deixa consultor mais legível
+                padronizarSegmento(c.segmento()), // normaliza o segmento
+                c.nivelCliente().trim().toUpperCase(Locale.ROOT), // nível sempre em maiúsculo
+                c.faturamentoAnual(), // mantém valor numérico validado
+                c.servicosContratados().trim(), // remove espaços dos serviços
+                c.dataContratacao(), // mantém data validada
+                c.cidade() == null ? "" : c.cidade().trim(), // cidade opcional
+                c.uf() == null ? "" : c.uf().trim().toUpperCase(Locale.ROOT) // UF opcional em maiúsculo
+        ); // fim do novo DTO
+    } // fim do método padronizar
+
+    private String padronizarSegmento(String segmento) { // recebe segmento da planilha
+        String s = segmento.trim().toLowerCase(Locale.ROOT); // remove espaços e deixa minúsculo
+        if (s.equals("ind.") || s.equals("industria") || s.equals("indústria")) { // variações de indústria
+            return "Indústria"; // retorna padrão único
+        } // fim do if
+        if (s.equals("comercio") || s.equals("comércio")) { // variações de comércio
+            return "Comércio"; // retorna padrão único
+        } // fim do if
+        if (s.equals("servicos") || s.equals("serviços")) { // variações de serviços
+            return "Serviços"; // retorna padrão único
+        } // fim do if
+        String oficial = Padronizacao.segmento(segmento); // outras variações (Saúde, Educação, TI...)
+        return oficial != null ? oficial : segmento.trim(); // se não conhece, mantém texto sem espaços extras
+    } // fim do método
+
+    private String formatarNome(String nome) { // recebe nome do consultor
+        // "ANA SOUZA" -> "Ana Souza" (cada palavra com a primeira letra maiúscula; "da", "de" ficam minúsculos)
+        return Padronizacao.tituloNome(nome); // remove espaços e ajusta maiúsculas
+    } // fim do método
+
+    // =====================================================================
+    // UPLOAD COMPLETO (rota /api/uploads/validadas): lista erros e avisos por linha
+    // =====================================================================
 
     public record ResultadoLinha(int numero, Map<String, String> valores,
                                  List<String> erros, List<String> avisos) {
@@ -50,12 +118,12 @@ public class ClienteValidacaoService {
     private static final DateTimeFormatter DATA_BR =
             DateTimeFormatter.ofPattern("d/M/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
-    public List<ResultadoLinha> validar(List<ClienteDTO> linhas) {
+    public List<ResultadoLinha> validar(List<LinhaPlanilha> linhas) {
         List<ResultadoLinha> saida = new ArrayList<>(linhas.size());
         Map<String, Integer> codigos = new HashMap<>();      // código -> 1ª linha onde apareceu
         Map<String, String> assinaturas = new HashMap<>();   // nome+faturamento+data -> código
 
-        for (ClienteDTO linha : linhas) {
+        for (LinhaPlanilha linha : linhas) {
             Map<String, String> valores = new LinkedHashMap<>();
             List<String> erros = new ArrayList<>();
             List<String> avisos = new ArrayList<>();
@@ -116,23 +184,22 @@ public class ClienteValidacaoService {
                 }
             }
 
-            // 5) faturamento: número, não negativo, abaixo de 1 trilhão; zero gera aviso
+            // 5) faturamento: número maior que zero (mesma regra do @Positive do DTO) e abaixo de 1 trilhão
             String fat = valores.get(FATURAMENTO);
             if (!fat.isEmpty()) {
                 Optional<BigDecimal> numero = lerDecimal(fat);  // aceita 1850000 · 1.850.000,50 · R$ ...
                 if (numero.isEmpty()) erros.add(FATURAMENTO + ": '" + fat + "' não é um número");
-                else if (numero.get().signum() < 0) erros.add(FATURAMENTO + ": não pode ser negativo");
+                else if (numero.get().signum() <= 0) erros.add(FATURAMENTO + ": deve ser maior que zero");
                 else if (numero.get().compareTo(UM_TRILHAO) >= 0) erros.add(FATURAMENTO + ": valor alto demais");
                 else {
-                    if (numero.get().signum() == 0) avisos.add(FATURAMENTO + ": valor igual a zero");
                     valores.put(FATURAMENTO, numero.get().setScale(2, RoundingMode.HALF_UP).toPlainString());
                 }
             }
 
-            // 6) serviços separados por ';' — pelo menos um
+            // 6) serviços separados por ';' ou ',' (a planilha modelo usa vírgula) — pelo menos um
             String servicos = valores.get(SERVICOS);
             if (!servicos.isEmpty()) {
-                List<String> lista = Arrays.stream(servicos.split(";")).map(String::strip)
+                List<String> lista = Arrays.stream(servicos.split("[;,]")).map(String::strip)
                         .filter(s -> !s.isEmpty()).toList();
                 if (lista.isEmpty()) erros.add(SERVICOS + ": informe pelo menos um serviço (separados por ';')");
                 else valores.put(SERVICOS, String.join(";", lista));

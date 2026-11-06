@@ -1,5 +1,6 @@
 package com.cti.provedor.controller;
 
+import com.cti.provedor.dto.AuthDtos.RedefinirSenhaRequest;
 import com.cti.provedor.dto.UsuarioDto;
 import com.cti.provedor.model.StatusUsuario;
 import com.cti.provedor.service.UsuarioService;
@@ -38,5 +39,11 @@ public class AdminUsuarioController {
     public UsuarioDto alterarStatus(@PathVariable Long id, @Valid @RequestBody AlterarStatusRequest req,
                                     Authentication authentication) {
         return service.alterarStatus(id, req.status(), service.atual(authentication));
+    }
+
+    @PatchMapping("/{id}/senha")  // { "novaSenha": "..." } -> para quem esqueceu a senha
+    public UsuarioDto redefinirSenha(@PathVariable Long id, @Valid @RequestBody RedefinirSenhaRequest req,
+                                     Authentication authentication) {
+        return service.redefinirSenha(id, req.novaSenha(), service.atual(authentication));
     }
 }

@@ -38,6 +38,20 @@ async function mudarStatus(user, novoStatus) {
     ? { type: 'success', text: `${user.name} agora está ${novoStatus.toLowerCase()}.` }
     : { type: 'error', text: result.message }
 }
+
+// Para quem esqueceu a senha: o admin define uma nova e passa para a pessoa
+async function redefinirSenha(user) {
+  const novaSenha = window.prompt(`Nova senha para ${user.name} (8 a 72 caracteres, com letras e números):`)
+  if (novaSenha === null) return // cancelou
+  if (!/^(?=.*[A-Za-z])(?=.*\d).{8,72}$/.test(novaSenha)) {
+    message.value = { type: 'error', text: 'A senha deve ter de 8 a 72 caracteres, com letras e números.' }
+    return
+  }
+  const result = await authStore.redefinirSenha(user.id, novaSenha)
+  message.value = result.ok
+    ? { type: 'success', text: `Senha de ${user.name} redefinida. Passe a nova senha para a pessoa.` }
+    : { type: 'error', text: result.message }
+}
 </script>
 
 <template>
@@ -90,6 +104,7 @@ async function mudarStatus(user, novoStatus) {
               <template v-else>
                 <button v-if="user.status !== 'Ativo'" class="action-link" type="button" @click="mudarStatus(user, 'Ativo')">Aprovar</button>
                 <button v-if="user.status !== 'Bloqueado'" class="more-button" type="button" @click="mudarStatus(user, 'Bloqueado')">Bloquear</button>
+                <button class="action-link" type="button" @click="redefinirSenha(user)">Redefinir senha</button>
               </template>
             </td>
           </tr>

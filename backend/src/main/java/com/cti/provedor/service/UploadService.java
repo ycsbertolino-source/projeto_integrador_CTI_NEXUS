@@ -15,7 +15,7 @@ import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
 
 import com.cti.provedor.config.ApiException;
 import com.cti.provedor.config.AppProperties;
-import com.cti.provedor.dto.ClienteDTO;
+import com.cti.provedor.dto.LinhaPlanilha;
 import com.cti.provedor.dto.UploadDtos.EnvioValidadasRequest;
 import com.cti.provedor.dto.UploadDtos.LinhaEnvio;
 import com.cti.provedor.service.ClienteValidacaoService.ResultadoLinha;
@@ -50,7 +50,7 @@ public class UploadService {
         String nome = nomeSeguro(req.arquivoNome());
         int descartadas = req.descartadas() == null ? 0 : Math.max(0, req.descartadas());
 
-        List<ClienteDTO> brutas = new ArrayList<>(req.linhas().size());
+        List<LinhaPlanilha> brutas = new ArrayList<>(req.linhas().size());
         int posicao = 2;  // a linha 1 da planilha é o cabeçalho
         for (LinhaEnvio e : req.linhas()) {
             if (e == null) { posicao++; continue; }
@@ -66,13 +66,13 @@ public class UploadService {
             campos.put(CIDADE, e.cidade());
             campos.put(UF, e.uf());
             int numero = e.numeroLinha() == null ? posicao : e.numeroLinha();
-            brutas.add(new ClienteDTO(numero, campos));
+            brutas.add(new LinhaPlanilha(numero, campos));
             posicao++;
         }
         return registrar(nome, brutas, descartadas);  // valida de novo e envia ao Python
     }
 
-    private Map<String, Object> registrar(String nome, List<ClienteDTO> brutas, int descartadas) {
+    private Map<String, Object> registrar(String nome, List<LinhaPlanilha> brutas, int descartadas) {
         List<ResultadoLinha> resultado = validacao.validar(brutas);  // VALIDAÇÃO NO BACKEND
         List<Map<String, Object>> validas = new ArrayList<>();
         List<String> rejeitadas = new ArrayList<>();

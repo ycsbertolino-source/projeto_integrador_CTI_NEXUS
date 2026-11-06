@@ -138,6 +138,26 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    // PATCH /api/auth/senha -> o usuário logado troca a própria senha
+    async trocarSenha(senhaAtual, novaSenha) {
+      try {
+        const { data } = await api.patch('/api/auth/senha', { senhaAtual, novaSenha })
+        return { ok: true, message: data.mensagem }
+      } catch (error) {
+        return { ok: false, message: mensagemDeErro(error, 'Não foi possível alterar a senha.') }
+      }
+    },
+
+    // PATCH /api/admin/usuarios/{id}/senha -> admin define senha nova para quem esqueceu
+    async redefinirSenha(userId, novaSenha) {
+      try {
+        await api.patch(`/api/admin/usuarios/${userId}/senha`, { novaSenha })
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, message: mensagemDeErro(error, 'Não foi possível redefinir a senha.') }
+      }
+    },
+
     // Admin cria um usuário: cadastra (nasce PENDENTE) e, se pedido, já aprova
     async criarUsuario({ name, email, password, status }) {
       const cadastro = await this.registerUser({ name, email, password })

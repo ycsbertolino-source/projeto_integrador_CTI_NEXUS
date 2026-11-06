@@ -1,6 +1,13 @@
 package com.cti.provedor.controller;
 
 import com.cti.provedor.config.ApiException;
+import com.cti.provedor.dto.ClienteDTO;
+import java.lang.reflect.RecordComponent;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -13,7 +20,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.validation.method.ParameterErrors;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /** Qualquer erro volta no mesmo formato: {"erro": "mensagem", "campos": {...}}. */
@@ -34,12 +44,65 @@ public class ErroHandler {
         return resposta(e.getStatus(), e.getMessage(), null);
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)  // campos inválidos (@Valid)
-    public ResponseEntity<ErroResposta> validacao(MethodArgumentNotValidException e) {
+    /**
+     * Formato da aula: {"mensagem": "Dados inválidos", "campo": "faturamentoAnual", "erro": "O faturamento..."}
+     * + "campos" com TODOS os erros (o front usa para mostrar tudo de uma vez).
+     */
+    private static ResponseEntity<Map<String, Object>> dadosInvalidos(Map<String, String> campos) {
+        Map<String, Object> corpo = new LinkedHashMap<>();
+        corpo.put("mensagem", "Dados inválidos");                       // mensagem geral
+        var primeiro = campos.entrySet().stream().findFirst();          // o primeiro erro encontrado
+        corpo.put("campo", primeiro.map(Map.Entry::getKey).orElse(null));      // campo que falhou
+        corpo.put("erro", primeiro.map(Map.Entry::getValue).orElse("Dados inválidos")); // texto definido no DTO
+        corpo.put("campos", campos);                                    // todos os erros
+        return ResponseEntity.badRequest().body(corpo);                 // devolve HTTP 400
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)  // captura erro de validação do DTO (@Valid em um objeto)
+    public ResponseEntity<Map<String, Object>> tratarErroDto(MethodArgumentNotValidException e) {
         Map<String, String> campos = new LinkedHashMap<>();
         e.getBindingResult().getFieldErrors()
                 .forEach(fe -> campos.putIfAbsent(fe.getField(), fe.getDefaultMessage()));
-        return resposta(HttpStatus.BAD_REQUEST, "Verifique os campos informados.", campos);
+        return dadosInvalidos(campos);
+    }
+
+    /**
+     * Com List<@Valid ClienteDTO> (rota /api/clientes/validar) o Spring Boot 3 lança
+     * HandlerMethodValidationException, e não MethodArgumentNotValidException.
+     * O campo vem com a posição na lista: "[0].nomeCliente".
+     */
+    /** O validador não garante ordem; usamos a ordem dos campos do ClienteDTO (codigoCliente, nomeCliente...). */
+    private static final List<String> CAMPOS_DTO = Arrays.stream(ClienteDTO.class.getRecordComponents())
+            .map(RecordComponent::getName).toList();
+
+    private static int ordemNoDto(String campo) {
+        int i = CAMPOS_DTO.indexOf(campo);
+        return i < 0 ? Integer.MAX_VALUE : i;
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<Map<String, Object>> tratarErroLista(HandlerMethodValidationException e) {
+        Map<String, String> campos = new LinkedHashMap<>();
+        for (ParameterValidationResult r : e.getParameterValidationResults()) {
+            String prefixo = r.getContainerIndex() != null ? "[" + r.getContainerIndex() + "]." : "";
+            if (r instanceof ParameterErrors erros) {   // erros dentro de um ClienteDTO
+                erros.getFieldErrors().stream()
+                        .sorted(Comparator.comparingInt(fe -> ordemNoDto(fe.getField()))) // mesma ordem do DTO
+                        .forEach(fe -> campos.putIfAbsent(prefixo + fe.getField(), fe.getDefaultMessage()));
+            } else {                                     // erro no próprio parâmetro
+                r.getResolvableErrors().forEach(m -> campos.putIfAbsent(
+                        prefixo + r.getMethodParameter().getParameterName(), m.getDefaultMessage()));
+            }
+        }
+        return dadosInvalidos(campos);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class) // captura erro lançado pelo Service (ex.: código repetido)
+    public ResponseEntity<Map<String, String>> tratarRegraNegocio(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(Map.of( // devolve HTTP 400
+                "mensagem", "Regra de validação não atendida", // mensagem geral
+                "erro", e.getMessage() // mensagem específica, exemplo: código repetido
+        )); // fim do body
     }
 
     @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
@@ -47,8 +110,22 @@ public class ErroHandler {
         return resposta(HttpStatus.BAD_REQUEST, "Parâmetro ausente ou inválido.", null);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)  // JSON ilegível
-    public ResponseEntity<ErroResposta> jsonIlegivel(HttpMessageNotReadableException e) {
+    @ExceptionHandler(HttpMessageNotReadableException.class)  // JSON ilegível ou valor do tipo errado
+    public ResponseEntity<?> jsonIlegivel(HttpMessageNotReadableException e) {
+        // Ex.: "dataContratacao": "30/02/2025" ou "faturamentoAnual": "abc" -> diz qual campo falhou
+        if (e.getCause() instanceof MismatchedInputException m && !m.getPath().isEmpty()) {
+            StringBuilder campo = new StringBuilder();
+            for (JsonMappingException.Reference ref : m.getPath()) {
+                if (ref.getFieldName() != null) campo.append(campo.isEmpty() ? "" : ".").append(ref.getFieldName());
+                else if (ref.getIndex() >= 0) campo.append("[").append(ref.getIndex()).append("]");
+            }
+            String texto = campo.toString().endsWith("dataContratacao")
+                    ? "A data de contratação deve ser uma data válida no formato aaaa-mm-dd"
+                    : "Valor em formato inválido";
+            Map<String, String> campos = new LinkedHashMap<>();
+            campos.put(campo.toString(), texto);
+            return dadosInvalidos(campos);
+        }
         return resposta(HttpStatus.BAD_REQUEST, "O corpo da requisição não é um JSON válido.", null);
     }
 

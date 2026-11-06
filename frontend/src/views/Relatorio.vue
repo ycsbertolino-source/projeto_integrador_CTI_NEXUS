@@ -103,37 +103,55 @@ function voltarParaUpload() {
         </div>
       </div>
 
-      <!-- Etapa 02: envia só as linhas válidas ao backend (que repassa ao Python) -->
+      <!-- Etapa 02: Axios envia as linhas válidas ao Spring Boot, que valida de novo (DTO + Service) -->
       <div class="panel send-panel">
         <div class="send-row">
           <div>
-            <h2>Enviar para o banco de dados</h2>
+            <h2>Validar no backend</h2>
             <p class="panel-text">
-              Somente as {{ store.totalValidas }} linhas válidas serão enviadas. As linhas com erro ficam de fora.
+              As {{ store.totalValidas }} linhas válidas serão conferidas de novo pelo Spring Boot
+              (POST /api/clientes/validar). As linhas com erro ficam de fora.
             </p>
           </div>
           <button
             type="button"
             class="primary-button"
-            :disabled="store.enviando || !store.totalValidas || Boolean(store.resultadoEnvio)"
-            @click="store.enviarValidadas()"
+            :disabled="store.validandoBackend || !store.totalValidas || Boolean(store.clientesPreparados)"
+            @click="store.validarNoBackend()"
           >
-            {{ store.enviando ? 'Enviando...' : store.resultadoEnvio ? 'Enviado' : 'Enviar linhas válidas' }}
+            {{ store.validandoBackend ? 'Validando...' : store.clientesPreparados ? 'Validado' : 'Validar no backend' }}
           </button>
         </div>
 
-        <p v-if="store.erroEnvio" class="alert alert-error">{{ store.erroEnvio }}</p>
-
-        <div v-if="store.resultadoEnvio" class="alert alert-success">
-          <strong>Planilha processada!</strong>
-          <p>
-            {{ store.resultadoEnvio.linhasValidas }} linhas gravadas ·
-            {{ store.resultadoEnvio.linhasInvalidas }} rejeitadas ·
-            {{ store.resultadoEnvio.linhasComAviso }} com aviso
-          </p>
-          <ul v-if="store.resultadoEnvio.rejeitadas?.length" class="rejected-list">
-            <li v-for="(motivo, i) in store.resultadoEnvio.rejeitadas" :key="i">{{ motivo }}</li>
+        <div v-if="store.errosBackend.length" class="alert alert-error">
+          <strong>O backend recusou os dados</strong>
+          <ul class="rejected-list">
+            <li v-for="(motivo, i) in store.errosBackend" :key="i">{{ motivo }}</li>
           </ul>
+        </div>
+
+        <div v-if="store.clientesPreparados" class="alert alert-success">
+          <strong>Dados validados e preparados pelo backend!</strong>
+          <p>{{ store.clientesPreparados.length }} clientes prontos para a etapa de Ciência de Dados.</p>
+        </div>
+      </div>
+
+      <!-- Lista devolvida pelo backend, já padronizada (segmento, consultor, UF...) -->
+      <div v-if="store.clientesPreparados?.length" class="panel">
+        <div class="panel-heading"><h2>Dados preparados pelo backend</h2></div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th v-for="coluna in Object.keys(store.clientesPreparados[0])" :key="coluna" class="nowrap">{{ coluna }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(cliente, i) in store.clientesPreparados" :key="i">
+                <td v-for="(valor, coluna) in cliente" :key="coluna" class="nowrap">{{ valor }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 

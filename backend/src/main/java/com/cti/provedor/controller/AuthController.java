@@ -4,6 +4,8 @@ import com.cti.provedor.dto.AuthDtos.CadastroRequest;
 import com.cti.provedor.dto.AuthDtos.LoginRequest;
 import com.cti.provedor.dto.AuthDtos.LoginResponse;
 import com.cti.provedor.dto.AuthDtos.MensagemResponse;
+import com.cti.provedor.dto.AuthDtos.TrocarSenhaRequest;
+import org.springframework.web.bind.annotation.PatchMapping;
 import com.cti.provedor.dto.UsuarioDto;
 import com.cti.provedor.service.AuthService;
 import com.cti.provedor.service.UsuarioService;
@@ -44,6 +46,12 @@ public class AuthController {
     @GetMapping("/auth/me")
     public UsuarioDto eu(Authentication authentication) {
         return UsuarioDto.de(usuarios.atual(authentication));
+    }
+
+    @PatchMapping("/auth/senha")  // o usuário logado troca a própria senha
+    public MensagemResponse trocarSenha(@Valid @RequestBody TrocarSenhaRequest req, Authentication authentication) {
+        usuarios.trocarSenha(usuarios.atual(authentication), req.senhaAtual(), req.novaSenha());
+        return new MensagemResponse("Senha alterada com sucesso.");
     }
 
     @GetMapping("/health")

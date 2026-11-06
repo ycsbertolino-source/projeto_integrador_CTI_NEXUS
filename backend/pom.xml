@@ -19,6 +19,7 @@
 
     <properties>
         <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
         <jjwt.version>0.12.6</jjwt.version>
     </properties>
 
@@ -65,6 +66,18 @@
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
             <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- testes automáticos (só em "mvnw test", não vão para a aplicação) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- banco H2: usado nos testes e no modo local (perfil "local"), sem precisar do Azure -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
     </dependencies>

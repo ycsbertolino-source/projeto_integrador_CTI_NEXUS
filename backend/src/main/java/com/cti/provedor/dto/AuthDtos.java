@@ -26,4 +26,17 @@ public final class AuthDtos {
     public record LoginResponse(String token, String tipo, long expiraEmSegundos, UsuarioDto usuario) {}
 
     public record MensagemResponse(String mensagem) {}
+
+    /** PATCH /api/auth/senha: o próprio usuário troca a senha. */
+    public record TrocarSenhaRequest(
+            @NotBlank(message = "Informe a senha atual") String senhaAtual,
+            @NotBlank(message = "Informe a nova senha")
+            @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).{8,72}$",
+                    message = "A nova senha deve ter de 8 a 72 caracteres, com letras e números") String novaSenha) {}
+
+    /** PATCH /api/admin/usuarios/{id}/senha: o admin define uma senha nova para quem esqueceu. */
+    public record RedefinirSenhaRequest(
+            @NotBlank(message = "Informe a nova senha")
+            @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).{8,72}$",
+                    message = "A nova senha deve ter de 8 a 72 caracteres, com letras e números") String novaSenha) {}
 }

@@ -9,6 +9,7 @@ const authStore = useAuthStore()
 const email = ref('')
 const password = ref('')
 const errorMessage = ref('')
+const mostrarAjuda = ref(false) // mostra como recuperar o acesso
 
 const loading = computed(() => authStore.loading)
 
@@ -252,7 +253,14 @@ onBeforeUnmount(() => {
 
         <div class="mt-6 text-center space-y-2">
           <p class="text-slate-400 text-xs">
-            Precisa de ajuda? <a href="#" class="text-blue-400 hover:text-blue-300">Contato do suporte</a>
+            Esqueceu a senha ou precisa de ajuda?
+            <button type="button" class="text-blue-400 hover:text-blue-300 underline-offset-2 hover:underline" @click="mostrarAjuda = !mostrarAjuda">
+              Contato do suporte
+            </button>
+          </p>
+          <p v-if="mostrarAjuda" class="text-slate-300 text-xs bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-left">
+            Fale com o administrador do sistema. Ele pode aprovar o seu cadastro ou definir uma senha nova para você
+            em <strong>Usuários → Redefinir senha</strong>. Depois de entrar, troque a senha em <strong>Configurações</strong>.
           </p>
           <p class="text-slate-400 text-xs">
             Ainda não tem conta?

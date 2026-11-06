@@ -19,11 +19,36 @@ const planilhasProcessadas = computed(() => {
   return store.dataUpload ? 1 : 0
 })
 
+// Contratações do ano mais recente da planilha, comparadas com o ano anterior (dados reais, não fixos)
+const contratacoes = computed(() => {
+  const porAno = {}
+  for (const r of store.dadosTratados || []) {
+    const d = r.data_contratacao_date ? new Date(r.data_contratacao_date) : null
+    if (!d || Number.isNaN(d.getTime())) continue
+    porAno[d.getFullYear()] = (porAno[d.getFullYear()] || 0) + 1
+  }
+  const anos = Object.keys(porAno).map(Number).sort((a, b) => a - b)
+  if (!anos.length) return { ano: null, total: 0, variacao: '' }
+  const ano = anos[anos.length - 1]
+  const anterior = porAno[ano - 1]
+  let variacao = 'sem ano anterior para comparar'
+  if (anterior) {
+    const pct = ((porAno[ano] - anterior) / anterior) * 100
+    variacao = `${pct >= 0 ? '+' : ''}${pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% vs ${ano - 1}`
+  }
+  return { ano, total: porAno[ano], variacao }
+})
+
 const kpis = computed(() => [
   { label: 'Faturamento total', value: totalFaturamento.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), change: '', tone: 'success' },
   { label: 'Clientes ativos', value: String(clientesAtivos.value), change: '', tone: 'info' },
   { label: 'Planilhas processadas', value: String(planilhasProcessadas.value), change: '', tone: 'warning' },
-  { label: 'Contratacoes', value: isAdmin.value ? '24' : '12', change: isAdmin.value ? '+18,2%' : '+9,4%', tone: 'success' },
+  {
+    label: contratacoes.value.ano ? `Contratações em ${contratacoes.value.ano}` : 'Contratações',
+    value: String(contratacoes.value.total),
+    change: contratacoes.value.variacao,
+    tone: contratacoes.value.variacao.startsWith('-') ? 'warning' : 'success',
+  },
 ])
 
 const levels = computed(() => {
@@ -51,24 +76,41 @@ const segments = computed(() => {
   return Object.entries(mapa).map(([label, value]) => ({ label, value: value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), width: Math.round((value / total) * 100) + '%' }))
 })
 
-const pathForLineChart = computed(() => {
+// Faturamento somado por mês de contratação (os 8 meses mais recentes que aparecem na planilha)
+const NOMES_MES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const meses = computed(() => {
   const mapa = new Map()
   for (const row of store.dadosTratados || []) {
-    const d = row.data_contratacao_date
+    const d = row.data_contratacao_date ? new Date(row.data_contratacao_date) : null
     const v = Number(row.faturamento_anual_num) || 0
-    if (!d) continue
+    if (!d || Number.isNaN(d.getTime())) continue
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     mapa.set(key, (mapa.get(key) || 0) + v)
   }
-  const entries = Array.from(mapa.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-8)
+  return Array.from(mapa.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-8)
+    .map(([key, valor]) => {
+      const [ano, mes] = key.split('-').map(Number)
+      return { key, valor, rotulo: `${NOMES_MES[mes - 1]}/${String(ano).slice(2)}` }
+    })
+})
+
+const periodoGrafico = computed(() => {
+  if (!meses.value.length) return ''
+  const primeiro = meses.value[0].rotulo
+  const ultimo = meses.value[meses.value.length - 1].rotulo
+  return primeiro === ultimo ? primeiro : `${primeiro} a ${ultimo}`
+})
+
+const pathForLineChart = computed(() => {
+  const entries = meses.value
   if (!entries.length) return ''
 
-  const values = entries.map(e => e[1])
+  const values = entries.map(e => e.valor)
   const max = Math.max(...values)
   const min = Math.min(...values)
   const w = 700
   const h = 220
-  const gap = w / Math.max(values.length - 1, 1)
+  const gap = (w - 30) / Math.max(values.length - 1, 1) // 15px de margem em cada lado
   const points = values.map((v, i) => {
     const x = Math.round(15 + i * gap)
     const norm = max === min ? 0.5 : (v - min) / (max - min)
@@ -161,15 +203,15 @@ function exportRelatorio() {
       <div class="dashboard-grid">
         <article class="panel chart-panel">
           <div class="panel-heading">
-            <div><h2>Evolucao de faturamento</h2><p>Ultimos 8 meses</p></div>
-            <span class="chart-tag">2026</span>
+            <div><h2>Evolucao de faturamento</h2><p>Por mês de contratação (até 8 meses)</p></div>
+            <span v-if="periodoGrafico" class="chart-tag">{{ periodoGrafico }}</span>
           </div>
           <svg class="line-chart" viewBox="0 0 700 220" role="img" aria-label="Grafico de evolucao de faturamento">
             <path :d="pathForLineChart" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
-            <path v-if="pathForLineChart" :d="pathForLineChart + ' L690 210 L15 210Z'" fill="url(#area)" opacity=".45" />
+            <path v-if="pathForLineChart" :d="pathForLineChart + ' L685 210 L15 210Z'" fill="url(#area)" opacity=".45" />
             <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2563eb" stop-opacity=".28"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
           </svg>
-          <div class="chart-axis"><span>Jan</span><span>Mar</span><span>Mai</span><span>Jul</span><span>Set</span><span>Nov</span></div>
+          <div class="chart-axis"><span v-for="m in meses" :key="m.key">{{ m.rotulo }}</span></div>
         </article>
 
         <article class="panel">

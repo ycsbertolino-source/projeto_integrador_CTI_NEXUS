@@ -21,7 +21,10 @@ export const useUploadStore = defineStore('upload', {
     historico: [],          // Guarda o histórico de uploads por usuário
     enviando: false,        // true enquanto as linhas válidas vão para o backend
     resultadoEnvio: null,   // Resposta do POST /api/uploads/validadas (contagens + rejeitadas)
-    erroEnvio: ''           // Mensagem de erro do envio ao backend
+    erroEnvio: '',          // Mensagem de erro do envio ao backend
+    validandoBackend: false, // true enquanto o POST /api/clientes/validar está em andamento
+    clientesPreparados: null, // Lista devolvida pelo backend (validada e padronizada)
+    errosBackend: []        // Mensagens de erro devolvidas pelo backend
   }),
 
 
@@ -126,7 +129,20 @@ export const useUploadStore = defineStore('upload', {
       if (typeof window === 'undefined') return
 
       const key = this.getCurrentUserHistoryKey()
-      localStorage.setItem(key, JSON.stringify(this.historico))
+      // O localStorage tem limite (~5 MB). Se estourar, descarta os uploads mais antigos
+      // em vez de deixar o erro subir (antes isso aparecia como "Não foi possível ler a planilha").
+      let lista = this.historico
+      while (lista.length) {
+        try {
+          localStorage.setItem(key, JSON.stringify(lista))
+          if (lista.length !== this.historico.length) this.historico = lista
+          return
+        } catch (error) {
+          lista = lista.slice(0, -1)
+        }
+      }
+      try { localStorage.removeItem(key) } catch (error) { /* ignora */ }
+      console.warn('Histórico grande demais para o navegador; ele não foi salvo.')
     },
 
     registrarUploadHistorico(nomeArquivo = this.arquivo?.name || 'Planilha') {
@@ -151,25 +167,93 @@ export const useUploadStore = defineStore('upload', {
       return novoRegistro
     },
 
-    carregarHistorico(item) {
-      if (!item) return false
+    carregarHistorico(itemOuId) {
+      // Aceita o registro do histórico ou só o id dele (a tela de Relatórios passa uma cópia resumida)
+      const id = typeof itemOuId === 'object' && itemOuId !== null ? itemOuId.id : itemOuId
+      const item = this.historico.find((h) => h.id === id) || itemOuId
+      if (!item || typeof item !== 'object') return false
 
       const dadosTratados = Array.isArray(item.dadosTratados) ? item.dadosTratados : []
       const dadosOriginais = Array.isArray(item.dadosOriginais) ? item.dadosOriginais : dadosTratados
 
       this.arquivo = { name: item.name || 'Planilha' }
       this.dadosOriginais = JSON.parse(JSON.stringify(dadosOriginais))
-      this.dadosTratados = JSON.parse(JSON.stringify(dadosTratados))
+      // No JSON as datas viram texto; volta para Date (Dashboard e Estatísticas usam getFullYear)
+      this.dadosTratados = JSON.parse(JSON.stringify(dadosTratados)).map((linha) => ({
+        ...linha,
+        erros: Array.isArray(linha.erros) ? linha.erros : [],
+        data_contratacao_date: linha.data_contratacao_date ? new Date(linha.data_contratacao_date) : null,
+      }))
       this.dataUpload = item.uploadedAt || item.createdAt || new Date().toISOString()
       this.erro = ''
       this.resultadoEnvio = null
       this.erroEnvio = ''
+      this.clientesPreparados = null
+      this.errosBackend = []
 
       return true
     },
 
-    // Envia SÓ as linhas válidas ao backend (POST /api/uploads/validadas).
-    // O backend valida de novo e repassa ao Python, que grava no banco.
+    // Etapa da aula: Pinia valida -> Axios envia JSON -> Spring Boot (DTO + Service) valida de novo
+    // -> devolve a lista preparada. Sem banco e sem Python. (POST /api/clientes/validar)
+    async validarNoBackend() {
+      this.errosBackend = []
+      this.clientesPreparados = null
+
+      const validas = this.linhasValidas // só o que passou na validação do Pinia
+      if (!validas.length) {
+        this.errosBackend = ['Não há linhas válidas para enviar.']
+        return false
+      }
+
+      // Date -> "aaaa-mm-dd" (formato que o LocalDate do DTO entende)
+      const dataIso = (d) => {
+        const data = d ? new Date(d) : null
+        if (!data || Number.isNaN(data.getTime())) return null
+        return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
+      }
+      const texto = (valor) => (valor === null || valor === undefined ? '' : String(valor).trim())
+
+      // Mesmos nomes de campo do ClienteDTO.java
+      const clientes = validas.map((linha) => ({
+        codigoCliente: texto(linha.codigo_cliente),
+        nomeCliente: texto(linha.nome_cliente),
+        consultor: texto(linha.consultor),
+        segmento: texto(linha.segmento),
+        nivelCliente: texto(linha.nivel_cliente),
+        faturamentoAnual: linha.faturamento_anual_num ?? null, // número puro (Double no Java)
+        servicosContratados: texto(linha.servicos_contratados),
+        dataContratacao: dataIso(linha.data_contratacao_date),
+        cidade: texto(linha.cidade),
+        uf: texto(linha.uf),
+      }))
+
+      this.validandoBackend = true
+      try {
+        const { data } = await api.post('/api/clientes/validar', clientes)
+        this.clientesPreparados = data
+        return true
+      } catch (error) {
+        const dados = error.response?.data
+        if (dados?.campos) {
+          // "[0].nomeCliente" -> "Linha 2 · nomeCliente: O nome do cliente é obrigatório"
+          this.errosBackend = Object.entries(dados.campos).map(([campo, mensagem]) => {
+            const m = campo.match(/^\[(\d+)\]\.?(.*)$/)
+            if (!m) return `${campo}: ${mensagem}`
+            const linhaPlanilha = validas[Number(m[1])]?.numero_linha ?? Number(m[1]) + 1
+            return `Linha ${linhaPlanilha} · ${m[2]}: ${mensagem}`
+          })
+        } else {
+          this.errosBackend = [dados?.erro || mensagemDeErro(error, 'Não foi possível validar no backend.')]
+        }
+        return false
+      } finally {
+        this.validandoBackend = false
+      }
+    },
+
+    // PRÓXIMA ETAPA (Ciência de Dados): envia as linhas válidas a /api/uploads/validadas,
+    // que valida de novo e repassa ao serviço Python. Ainda não usado nas telas.
     async enviarValidadas() {
       this.erroEnvio = ''
       this.resultadoEnvio = null
@@ -216,6 +300,8 @@ export const useUploadStore = defineStore('upload', {
       this.erro = '' // Reseta a mensagem de erro global
       this.resultadoEnvio = null // Nova planilha: esquece o envio anterior
       this.erroEnvio = ''
+      this.clientesPreparados = null
+      this.errosBackend = []
       this.arquivo = file // Salva a referência do arquivo no estado
       this.dataUpload = new Date() // Registra a data e hora atual do upload
       this.dadosOriginais = [] // Limpa os dados brutos anteriores
@@ -272,8 +358,8 @@ export const useUploadStore = defineStore('upload', {
         }
 
         // 2. CÓDIGO DO CLIENTE
-        if (typeof novaLinha.codigo_cliente === 'string') {
-          novaLinha.codigo_cliente = novaLinha.codigo_cliente.trim().toUpperCase() // Padroniza o código para maiúsculas e remove espaços
+        if (novaLinha.codigo_cliente !== '' && novaLinha.codigo_cliente != null) {
+          novaLinha.codigo_cliente = String(novaLinha.codigo_cliente).trim().toUpperCase() // Padroniza o código para maiúsculas e remove espaços
         }
 
         if (!novaLinha.codigo_cliente) {
@@ -305,7 +391,7 @@ export const useUploadStore = defineStore('upload', {
         if (!novaLinha.segmento || String(novaLinha.segmento).trim() === '') {
           erros.push('segmento está em branco.') // Valida se o segmento foi preenchido
         } else {
-          const segmento = novaLinha.segmento.trim().toUpperCase() // Padroniza para maiúsculas
+          const segmento = String(novaLinha.segmento).trim().toUpperCase() // Padroniza para maiúsculas
           const mapaSegmentos = {
             'IND.': 'Indústria', 'INDUSTRIA': 'Indústria', 'INDÚSTRIA': 'Indústria',
             'COMERCIO': 'Comércio', 'COMÉRCIO': 'Comércio',
@@ -318,8 +404,8 @@ export const useUploadStore = defineStore('upload', {
         }
 
         // 6. NÍVEL DO CLIENTE
-        if (typeof novaLinha.nivel_cliente === 'string') {
-          novaLinha.nivel_cliente = novaLinha.nivel_cliente.trim().toUpperCase() // Padroniza nível para maiúsculas
+        if (novaLinha.nivel_cliente !== '' && novaLinha.nivel_cliente != null) {
+          novaLinha.nivel_cliente = String(novaLinha.nivel_cliente).trim().toUpperCase() // Padroniza nível para maiúsculas
         }
 
         if (!novaLinha.nivel_cliente) {
@@ -343,6 +429,9 @@ export const useUploadStore = defineStore('upload', {
           const numero = Number(valor)
           if (isNaN(numero)) {
             erros.push('faturamento_anual inválido.') // Valida se a conversão gerou um número válido
+            novaLinha.faturamento_anual_num = null
+          } else if (numero <= 0) {
+            erros.push('faturamento_anual deve ser maior que zero.') // Mesma regra do @Positive do backend
             novaLinha.faturamento_anual_num = null
           } else {
             // preserve numeric value for aggregations and keep a formatted display string
@@ -374,33 +463,33 @@ export const useUploadStore = defineStore('upload', {
               novaLinha.data_contratacao_date = null
             }
           } else {
-            // try parse string dates like DD/MM/YYYY
-            if (typeof valorData === 'string' && /\d{1,2}\/\d{1,2}\/\d{4}/.test(valorData)) {
-              const parts = valorData.split('/')
-              const d = parseInt(parts[0], 10)
-              const m = parseInt(parts[1], 10)
-              const y = parseInt(parts[2], 10)
-              novaLinha.data_contratacao_date = new Date(y, m - 1, d)
-            } else {
+            // Mesma regra do backend: DD/MM/AAAA (ou D/M/AAAA) ou AAAA-MM-DD, a partir de 1990
+            const texto = String(valorData).trim()
+            let d, m, y
+            let partes = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+            if (partes) [, d, m, y] = partes.map(Number)
+            else if ((partes = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/))) [, y, m, d] = partes.map(Number)
+
+            const data = partes ? new Date(y, m - 1, d) : null
+            const existe = data && data.getFullYear() === y && data.getMonth() === m - 1 && data.getDate() === d
+            if (!existe || y < 1990) {
+              erros.push(`data_contratacao inválida: ${texto}. Use DD/MM/AAAA.`)
               novaLinha.data_contratacao_date = null
+            } else {
+              novaLinha.data_contratacao_date = data
             }
           }
         }
 
-        // 10. CIDADE
-        if (!novaLinha.cidade || String(novaLinha.cidade).trim() === '') {
-          erros.push('cidade está em branco.') // Valida se a cidade foi preenchida
-        }
+        // 10. CIDADE: campo opcional (pode vir vazio)
 
-        // 11. UF
+        // 11. UF: opcional, mas se vier preenchida precisa ter 2 letras (mesma regra do DTO)
         if (typeof novaLinha.uf === 'string') {
           novaLinha.uf = novaLinha.uf.trim().toUpperCase() // Padroniza UF para maiúsculas
         }
 
-        if (!novaLinha.uf) {
-          erros.push('uf está em branco.') // Valida se a UF foi preenchida
-        } else if (!/^[A-Z]{2}$/.test(novaLinha.uf)) {
-          erros.push('uf inválida.') // Valida se a UF possui exatamente 2 letras
+        if (novaLinha.uf && !/^[A-Z]{2}$/.test(novaLinha.uf)) {
+          erros.push('uf inválida. Use 2 letras, ex: SP.') // Valida se a UF possui exatamente 2 letras
         }
 
         // RESULTADO DA LINHA
@@ -420,6 +509,8 @@ export const useUploadStore = defineStore('upload', {
       this.dataUpload = null // Reseta a data e hora do upload
       this.resultadoEnvio = null // Limpa o resultado do envio ao backend
       this.erroEnvio = ''
+      this.clientesPreparados = null
+      this.errosBackend = []
     }
     ,
     // Métodos de compatibilidade usados pelas views

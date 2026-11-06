@@ -35,8 +35,9 @@ const reports = computed(() => {
 })
 
 function openReport(item = null) {
-  if (item) {
-    store.carregarHistorico(item)
+  // "item" é só o resumo da lista; o store busca o registro completo (com as linhas) pelo id
+  if (item && store.historico.some((h) => h.id === item.id)) {
+    store.carregarHistorico(item.id)
   }
   router.push({ name: 'relatorio' })
 }

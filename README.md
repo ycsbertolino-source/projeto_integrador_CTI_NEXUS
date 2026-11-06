@@ -35,6 +35,33 @@ npm run dev
 ```
 Abra http://localhost:5173
 
+## Modo local (sem Azure)
+
+Para rodar sem o banco do Azure, use o perfil `local`: ele usa um banco H2 salvo em `backend/data/`.
+```
+cd backend
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+No VS Code: Executar e Depurar → **Backend (modo local, sem Azure)**.
+Login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` do `backend/.env` (sem ADMIN_PASSWORD, a senha é `Admin12345`).
+Os dados continuam lá quando o backend é desligado; para zerar, apague a pasta `backend/data`.
+
+## Validação no backend (aula DTO + Jakarta Validation)
+
+`POST http://localhost:8080/api/clientes/validar` recebe a lista do Pinia, valida no `ClienteDTO`
+(`@NotBlank`, `@NotNull`, `@Positive`, `@Pattern`), o `ClienteValidacaoService` confere código repetido e
+padroniza, e devolve a lista preparada. Não precisa de token, não grava no banco e não chama o Python.
+
+- Thunder Client: use os JSONs dos slides 26 (válido → 200) e 27 (inválido → 400 `{"mensagem","campo","erro"}`).
+- Testes automáticos (não precisam do Azure): `cd backend` e `.\mvnw.cmd test`.
+
+## Se o backend não ligar
+
+`Failed to obtain JDBC Connection` / `Connect timed out` = o banco no Azure recusou a conexão.
+No portal do Azure → servidor `nexuscti` → **Rede** → **Adicionar endereço IP do cliente atual** → Salvar.
+Toda vez que mudar de rede (casa, SENAI, celular) o IP muda e precisa liberar de novo.
+Confira também se o servidor não está **Parado** (Visão geral → Iniciar).
+
 ## Primeiro acesso
 
 Entre com o e-mail de `ADMIN_EMAIL` (padrão `admin@cti.local`) e a senha de `ADMIN_PASSWORD`.
