@@ -1,0 +1,14 @@
+[
+  {
+    "codigo_cliente": "CTI001",
+    "nome_cliente": "Metalúrgica Horizonte",
+    "consultor": "ana souza",
+    "segmento": "IND.",
+    "nivel_cliente": "A",
+    "faturamento_anual": "1850000.00",
+    "servicos_contratados": "Internet Dedicada;Firewall",
+    "data_contratacao": "2025-01-15",
+    "cidade": "Campinas",
+    "uf": "SP"
+  }
+]

@@ -90,7 +90,7 @@ public class UploadService {
 
         int recebidas = resultado.size() + descartadas;
         int invalidas = rejeitadas.size() + descartadas;
-        python.enviar(nome, recebidas, invalidas, comAviso, validas);  // o Python grava
+        Map<String, Object> processamento = python.enviar(nome, recebidas, invalidas, comAviso, validas);
 
         Map<String, Object> saida = new LinkedHashMap<>();
         saida.put("status", "PROCESSADO");
@@ -100,6 +100,8 @@ public class UploadService {
         saida.put("linhasInvalidas", invalidas);
         saida.put("linhasComAviso", comAviso);
         saida.put("rejeitadas", rejeitadas);
+        saida.put("loteId", processamento.get("loteId"));
+        saida.put("estatisticas", processamento.get("estatisticas"));
         return saida;
     }
 

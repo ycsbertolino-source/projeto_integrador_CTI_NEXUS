@@ -8,6 +8,7 @@ import static org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE;
 import com.cti.provedor.config.ApiException;
 import com.cti.provedor.config.AppProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
@@ -40,8 +41,8 @@ public class PythonEtlService {
         this.json = json;
     }
 
-    public void enviar(String arquivoNome, int recebidas, int invalidas, int comAviso,
-                       List<Map<String, Object>> linhas) {
+    public Map<String, Object> enviar(String arquivoNome, int recebidas, int invalidas, int comAviso,
+                                      List<Map<String, Object>> linhas) {
         Map<String, Object> pedido = new LinkedHashMap<>();
         pedido.put("arquivoNome", arquivoNome);
         pedido.put("recebidas", recebidas);
@@ -60,10 +61,10 @@ public class PythonEtlService {
                 .timeout(Duration.ofMinutes(5))
                 .header("Content-Type", "application/json; charset=utf-8")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(corpo));
-        chamar(req);
+        return chamar(req);
     }
 
-    private void chamar(HttpRequest.Builder req) {
+    private Map<String, Object> chamar(HttpRequest.Builder req) {
         if (!chave.isEmpty()) req.header("X-ETL-Key", chave);
         HttpResponse<String> resp;
         try {
@@ -78,6 +79,19 @@ public class PythonEtlService {
         if (resp.statusCode() != 200) {
             log.warn("Python respondeu {}: {}", resp.statusCode(), resp.body());
             throw new ApiException(BAD_GATEWAY, "O serviço Python respondeu com erro (HTTP " + resp.statusCode() + ").");
+        }
+        try {
+            Map<String, Object> resultado = json.readValue(resp.body(), new TypeReference<>() {});
+            if (!Boolean.TRUE.equals(resultado.get("ok"))
+                    || !(resultado.get("loteId") instanceof Number)
+                    || !(resultado.get("estatisticas") instanceof Map<?, ?>)) {
+                log.warn("Python retornou dados incompletos para um upload.");
+                throw new ApiException(BAD_GATEWAY, "O serviço Python retornou dados incompletos.");
+            }
+            return resultado;
+        } catch (JsonProcessingException e) {
+            log.warn("Python retornou uma resposta inválida: {}", e.getMessage());
+            throw new ApiException(BAD_GATEWAY, "O serviço Python retornou uma resposta inválida.");
         }
     }
 }

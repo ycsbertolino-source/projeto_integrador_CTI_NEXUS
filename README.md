@@ -4,65 +4,105 @@ Projeto Integrador · SENAI · ADS
 
 ```
 CTI_NEXUS/
-├── backend/    API em Spring Boot 3.5 + Java 21 (porta 8080)
-└── frontend/   Site em Vue 3 + Vite (porta 5173)
+├── backend/          API Spring Boot 3.5 + Java 21 (porta 8080)
+├── frontend/         Vue 3 + Vite (porta 5173)
+└── analytics-python/ ETL, estatísticas e API FastAPI (porta 8000)
 ```
 
-O front e o backend rodam separados, cada um no seu terminal. O front chama a API em `http://localhost:8080`.
+O Java valida a planilha e encaminha as linhas válidas ao serviço Python. O Python persiste os clientes, contratos, estatísticas e o snapshot de cada painel no PostgreSQL. O Java expõe o lote e o painel por rotas protegidas por JWT.
 
-## Antes da primeira vez
+## Requisitos
 
-1. **Backend:** copie `backend/.env.example` para `backend/.env` e preencha `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET` (mínimo 32 caracteres) e `ADMIN_PASSWORD`.
-2. **Frontend:** instale as dependências:
-   ```
-   cd frontend
-   npm install
-   ```
+- Java 21
+- Node.js e npm
+- Python 3.10+
+- Docker com Docker Compose, para o PostgreSQL local
 
-## Para rodar (2 terminais)
+## Preparar o banco local
 
-**Terminal 1 · Backend**
+Na raiz do projeto:
+
+```powershell
+docker compose up -d postgres
 ```
+
+O banco local de desenvolvimento usa `ctiinsights`, usuário `postgres` e senha `cti-nexus-local`. Esses valores são apenas para desenvolvimento local; use credenciais próprias nos ambientes compartilhados.
+
+## Configuração
+
+1. Copie `backend/.env.example` para `backend/.env`.
+2. No `backend/.env`, configure `DB_URL=jdbc:postgresql://localhost:5432/ctiinsights`, `DB_USER=postgres`, `DB_PASSWORD=cti-nexus-local`, um `JWT_SECRET` aleatório com pelo menos 32 caracteres e `ADMIN_PASSWORD`.
+3. Copie `analytics-python/.env.example` para `analytics-python/.env`. Use os mesmos dados PostgreSQL. Se preencher `ETL_API_KEY`, configure o mesmo valor em `ETL_KEY` no `backend/.env`.
+4. Instale as dependências do frontend:
+
+```powershell
+cd frontend
+npm install
+cd ..
+```
+
+## Executar localmente
+
+Inicie cada serviço em um terminal separado, a partir da raiz do projeto.
+
+**Terminal 1 — ETL e API Python**
+
+```powershell
+cd analytics-python
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn api:app --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 — Backend Java**
+
+```powershell
 cd backend
 .\mvnw.cmd spring-boot:run
 ```
-Teste rápido: http://localhost:8080/api/health → `{"status":"ok"}`
 
-**Terminal 2 · Frontend**
-```
+**Terminal 3 — Frontend**
+
+```powershell
 cd frontend
 npm run dev
 ```
-Abra http://localhost:5173
 
-## Modo local (sem Azure)
+Abra http://localhost:5173. O backend executa `schema.sql` ao iniciar, criando as tabelas necessárias no PostgreSQL.
 
-Para rodar sem o banco do Azure, use o perfil `local`: ele usa um banco H2 salvo em `backend/data/`.
+## API analítica
+
+- `POST /api/uploads/validadas` — recebe o upload validado (requer autenticação).
+- `GET /api/dashboard` — retorna as estatísticas persistidas do lote processado mais recente (requer autenticação).
+- `GET /api/dashboard?loteId=<id>` — retorna as estatísticas de um lote específico (requer autenticação).
+- `GET /api/lotes` — lista o histórico de processamento (requer autenticação).
+- `GET http://localhost:8000/saude` — verifica se o serviço Python está ativo.
+
+As rotas do ETL são destinadas à comunicação entre os serviços; a chave opcional `ETL_API_KEY` deve ser a mesma em `backend/.env` (`ETL_KEY`) e `analytics-python/.env` (`ETL_API_KEY`).
+
+## Testes
+
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..\analytics-python
+py -m unittest discover -s tests
+cd ..\frontend
+npm run build
 ```
+
+## Modo local sem PostgreSQL
+
+O perfil Java `local` usa H2 para testar as funcionalidades Java sem Azure ou Docker:
+
+```powershell
 cd backend
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
-No VS Code: Executar e Depurar → **Backend (modo local, sem Azure)**.
-Login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` do `backend/.env` (sem ADMIN_PASSWORD, a senha é `Admin12345`).
-Os dados continuam lá quando o backend é desligado; para zerar, apague a pasta `backend/data`.
 
-## Validação no backend (aula DTO + Jakarta Validation)
-
-`POST http://localhost:8080/api/clientes/validar` recebe a lista do Pinia, valida no `ClienteDTO`
-(`@NotBlank`, `@NotNull`, `@Positive`, `@Pattern`), o `ClienteValidacaoService` confere código repetido e
-padroniza, e devolve a lista preparada. Não precisa de token, não grava no banco e não chama o Python.
-
-- Thunder Client: use os JSONs dos slides 26 (válido → 200) e 27 (inválido → 400 `{"mensagem","campo","erro"}`).
-- Testes automáticos (não precisam do Azure): `cd backend` e `.\mvnw.cmd test`.
-
-## Se o backend não ligar
-
-`Failed to obtain JDBC Connection` / `Connect timed out` = o banco no Azure recusou a conexão.
-No portal do Azure → servidor `nexuscti` → **Rede** → **Adicionar endereço IP do cliente atual** → Salvar.
-Toda vez que mudar de rede (casa, SENAI, celular) o IP muda e precisa liberar de novo.
-Confira também se o servidor não está **Parado** (Visão geral → Iniciar).
+Esse perfil não compartilha o banco com o ETL Python. Para testar o fluxo completo de upload e dashboard, inicie o PostgreSQL e execute os serviços Java e Python com a mesma configuração de banco descrita acima.
 
 ## Primeiro acesso
 
-Entre com o e-mail de `ADMIN_EMAIL` (padrão `admin@cti.local`) e a senha de `ADMIN_PASSWORD`.
-Novos usuários se cadastram em `/cadastro` e só entram depois que o administrador aprovar em **Usuários**.
+Entre com o e-mail definido em `ADMIN_EMAIL` (padrão `admin@cti.local`) e a senha definida em `ADMIN_PASSWORD`. Novos usuários se cadastram em `/cadastro` e só entram depois que o administrador aprovar em **Usuários**.

@@ -1,48 +1,67 @@
 <script setup>
-import { computed } from 'vue'
-import { usePlanilhaStore } from '@/stores/planilhaStore'
+import { computed, onMounted, ref } from 'vue'
+import api, { mensagemDeErro } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 
-const store = usePlanilhaStore()
 const authStore = useAuthStore()
-
+const dashboard = ref(null)
+const lotes = ref([])
+const loading = ref(true)
+const erro = ref('')
 const isAdmin = computed(() => authStore.user?.role === 'admin')
+const estatisticas = computed(() => dashboard.value?.estatisticas || null)
 
-const totalFaturamento = computed(() => {
-  return (store.dadosTratados || []).reduce((s, r) => s + (Number(r.faturamento_anual_num) || 0), 0)
-})
-
-const clientesAtivos = computed(() => (store.dadosTratados || []).length)
-
-const planilhasProcessadas = computed(() => {
-  if (Array.isArray(store.historico) && store.historico.length > 0) return store.historico.length
-  return store.dataUpload ? 1 : 0
-})
-
-// Contratações do ano mais recente da planilha, comparadas com o ano anterior (dados reais, não fixos)
-const contratacoes = computed(() => {
-  const porAno = {}
-  for (const r of store.dadosTratados || []) {
-    const d = r.data_contratacao_date ? new Date(r.data_contratacao_date) : null
-    if (!d || Number.isNaN(d.getTime())) continue
-    porAno[d.getFullYear()] = (porAno[d.getFullYear()] || 0) + 1
+async function carregarDashboard() {
+  loading.value = true
+  erro.value = ''
+  try {
+    const [resposta, respostaLotes] = await Promise.all([
+      api.get('/api/dashboard'),
+      api.get('/api/lotes'),
+    ])
+    dashboard.value = resposta.data
+    lotes.value = respostaLotes.data
+  } catch (error) {
+    if (error.response?.status === 404) {
+      dashboard.value = null
+      lotes.value = []
+    } else {
+      erro.value = mensagemDeErro(error, 'Não foi possível carregar o painel.')
+    }
+  } finally {
+    loading.value = false
   }
-  const anos = Object.keys(porAno).map(Number).sort((a, b) => a - b)
+}
+
+onMounted(carregarDashboard)
+
+const contratacoes = computed(() => {
+  const porAno = new Map()
+  for (const mes of estatisticas.value?.porMes || []) {
+    const ano = Number(String(mes.mes).slice(0, 4))
+    if (Number.isFinite(ano)) porAno.set(ano, (porAno.get(ano) || 0) + Number(mes.contratacoes || 0))
+  }
+  const anos = [...porAno.keys()].sort((a, b) => a - b)
   if (!anos.length) return { ano: null, total: 0, variacao: '' }
-  const ano = anos[anos.length - 1]
-  const anterior = porAno[ano - 1]
+  const ano = anos.at(-1)
+  const anterior = porAno.get(ano - 1)
   let variacao = 'sem ano anterior para comparar'
   if (anterior) {
-    const pct = ((porAno[ano] - anterior) / anterior) * 100
+    const pct = ((porAno.get(ano) - anterior) / anterior) * 100
     variacao = `${pct >= 0 ? '+' : ''}${pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% vs ${ano - 1}`
   }
-  return { ano, total: porAno[ano], variacao }
+  return { ano, total: porAno.get(ano), variacao }
 })
 
 const kpis = computed(() => [
-  { label: 'Faturamento total', value: totalFaturamento.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), change: '', tone: 'success' },
-  { label: 'Clientes ativos', value: String(clientesAtivos.value), change: '', tone: 'info' },
-  { label: 'Planilhas processadas', value: String(planilhasProcessadas.value), change: '', tone: 'warning' },
+  {
+    label: 'Faturamento total',
+    value: Number(estatisticas.value?.resumo?.total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    change: '',
+    tone: 'success',
+  },
+  { label: 'Clientes ativos', value: String(estatisticas.value?.totalClientes || 0), change: '', tone: 'info' },
+  { label: 'Planilhas processadas', value: String(lotes.value.length), change: '', tone: 'warning' },
   {
     label: contratacoes.value.ano ? `Contratações em ${contratacoes.value.ano}` : 'Contratações',
     value: String(contratacoes.value.total),
@@ -52,122 +71,108 @@ const kpis = computed(() => [
 ])
 
 const levels = computed(() => {
-  const mapa = { A: 0, B: 0, C: 0 }
-  for (const r of store.dadosTratados || []) {
-    const n = (r.nivel_cliente || '').toUpperCase()
-    if (mapa[n] !== undefined) mapa[n]++
+  const contagens = { A: 0, B: 0, C: 0 }
+  for (const item of estatisticas.value?.porNivel || []) {
+    if (Object.hasOwn(contagens, item.nivel)) contagens[item.nivel] = Number(item.clientes || 0)
   }
-  const total = mapa.A + mapa.B + mapa.C || 1
+  const total = Object.values(contagens).reduce((soma, valor) => soma + valor, 0) || 1
   return [
-    { label: 'Nivel A', value: Math.round((mapa.A / total) * 100), color: '#2563eb' },
-    { label: 'Nivel B', value: Math.round((mapa.B / total) * 100), color: '#0d9488' },
-    { label: 'Nivel C', value: Math.round((mapa.C / total) * 100), color: '#94a3b8' },
+    { label: 'Nivel A', value: Math.round((contagens.A / total) * 100), color: '#2563eb' },
+    { label: 'Nivel B', value: Math.round((contagens.B / total) * 100), color: '#0d9488' },
+    { label: 'Nivel C', value: Math.round((contagens.C / total) * 100), color: '#94a3b8' },
   ]
 })
 
 const segments = computed(() => {
-  const mapa = {}
-  for (const r of store.dadosTratados || []) {
-    const seg = r.segmento || 'Outros'
-    const val = Number(r.faturamento_anual_num) || 0
-    mapa[seg] = (mapa[seg] || 0) + val
-  }
-  const total = Object.values(mapa).reduce((s, v) => s + v, 0) || 1
-  return Object.entries(mapa).map(([label, value]) => ({ label, value: value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), width: Math.round((value / total) * 100) + '%' }))
+  const dados = estatisticas.value?.porSegmento || []
+  const total = dados.reduce((soma, item) => soma + Number(item.faturamentoTotal || 0), 0) || 1
+  return dados.map(item => {
+    const faturamento = Number(item.faturamentoTotal || 0)
+    return {
+      label: item.segmento,
+      value: faturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+      width: `${Math.round((faturamento / total) * 100)}%`,
+    }
+  })
 })
 
-// Faturamento somado por mês de contratação (os 8 meses mais recentes que aparecem na planilha)
 const NOMES_MES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-const meses = computed(() => {
-  const mapa = new Map()
-  for (const row of store.dadosTratados || []) {
-    const d = row.data_contratacao_date ? new Date(row.data_contratacao_date) : null
-    const v = Number(row.faturamento_anual_num) || 0
-    if (!d || Number.isNaN(d.getTime())) continue
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    mapa.set(key, (mapa.get(key) || 0) + v)
+const meses = computed(() => (estatisticas.value?.porMes || []).slice(-8).map(item => {
+  const [ano, mes] = String(item.mes).split('-').map(Number)
+  return {
+    key: item.mes,
+    valor: Number(item.faturamentoTotal || 0),
+    rotulo: `${NOMES_MES[mes - 1] || ''}/${String(ano).slice(2)}`,
   }
-  return Array.from(mapa.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-8)
-    .map(([key, valor]) => {
-      const [ano, mes] = key.split('-').map(Number)
-      return { key, valor, rotulo: `${NOMES_MES[mes - 1]}/${String(ano).slice(2)}` }
-    })
-})
+}))
 
 const periodoGrafico = computed(() => {
   if (!meses.value.length) return ''
   const primeiro = meses.value[0].rotulo
-  const ultimo = meses.value[meses.value.length - 1].rotulo
+  const ultimo = meses.value.at(-1).rotulo
   return primeiro === ultimo ? primeiro : `${primeiro} a ${ultimo}`
 })
 
 const pathForLineChart = computed(() => {
-  const entries = meses.value
-  if (!entries.length) return ''
-
-  const values = entries.map(e => e.valor)
+  const values = meses.value.map(item => item.valor)
+  if (!values.length) return ''
   const max = Math.max(...values)
   const min = Math.min(...values)
-  const w = 700
-  const h = 220
-  const gap = (w - 30) / Math.max(values.length - 1, 1) // 15px de margem em cada lado
-  const points = values.map((v, i) => {
-    const x = Math.round(15 + i * gap)
-    const norm = max === min ? 0.5 : (v - min) / (max - min)
-    const y = Math.round(h - (norm * (h - 40)) - 20)
-    return `${x} ${y}`
+  const gap = 670 / Math.max(values.length - 1, 1)
+  const points = values.map((value, index) => {
+    const x = Math.round(15 + index * gap)
+    const norm = max === min ? 0.5 : (value - min) / (max - min)
+    const y = Math.round(200 - (norm * 180))
+    return `${x},${y}`
   })
-
-  return 'M' + points.map((p) => p.replace(' ', ',')).join(' L ')
+  return `M${points.join(' L ')}`
 })
 
+function escaparHtml(valor) {
+  return String(valor ?? '').replace(/[&<>"']/g, caractere => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[caractere])
+}
+
 function exportRelatorio() {
-  const linhas = store.dadosTratados || []
-  if (!linhas.length) return
-
-  const colunas = Object.keys(linhas[0]).filter((coluna) => !['erros', 'numero_linha'].includes(coluna))
-
+  if (!estatisticas.value) return
+  const linhas = [
+    ['Arquivo', dashboard.value.arquivo_nome],
+    ['Status', dashboard.value.status],
+    ['Clientes', estatisticas.value.totalClientes],
+    ['Contratos', estatisticas.value.totalContratos],
+    ['Faturamento total', estatisticas.value.resumo?.total],
+    ['Faturamento médio', estatisticas.value.resumo?.media],
+  ]
   const html = `
-    <html>
-      <head>
-        <title>Relatório CTI</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
-          h1 { margin-bottom: 10px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 18px; }
-          th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; font-size: 12px; }
-          th { background: #f1f5f9; }
-          .meta { color: #475569; font-size: 12px; margin-bottom: 8px; }
-        </style>
-      </head>
-      <body>
-        <h1>Relatório CTI</h1>
-        <div class="meta">Gerado em: ${new Date().toLocaleString('pt-BR')}</div>
-        <table>
-          <thead>
-            <tr>${colunas.map((coluna) => `<th>${coluna}</th>`).join('')}</tr>
-          </thead>
-          <tbody>
-            ${linhas.map((linha) => `
-              <tr>
-                ${colunas.map((coluna) => `<td>${String(linha[coluna] ?? '').replace(/</g, '&lt;')}</td>`).join('')}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </body>
-    </html>
-  `
+    <html><head><title>Relatório CTI</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
+        h1 { margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+        th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; font-size: 12px; }
+        th { background: #f1f5f9; }
+      </style>
+    </head><body>
+      <h1>Relatório CTI</h1>
+      <p>Gerado em: ${escaparHtml(new Date().toLocaleString('pt-BR'))}</p>
+      <table><thead><tr><th>Indicador</th><th>Valor</th></tr></thead>
+      <tbody>${linhas.map(([chave, valor]) => `<tr><td>${escaparHtml(chave)}</td><td>${escaparHtml(valor)}</td></tr>`).join('')}</tbody></table>
+    </body></html>`
 
-  const printWindow = window.open('', '_blank', 'width=900,height=700')
-  if (!printWindow) return
-
-  printWindow.document.write(html)
-  printWindow.document.close()
-  printWindow.focus()
-  setTimeout(() => {
-    printWindow.print()
-  }, 300)
+  const janela = window.open('', '_blank', 'width=900,height=700')
+  if (!janela) {
+    erro.value = 'Permita a abertura de janelas para exportar o relatório.'
+    return
+  }
+  janela.document.write(html)
+  janela.document.close()
+  janela.focus()
+  setTimeout(() => janela.print(), 300)
 }
 </script>
 
@@ -179,12 +184,14 @@ function exportRelatorio() {
         <h1>Visao geral</h1>
         <p class="subtitle">Acompanhe os principais indicadores da sua operacao.</p>
       </div>
-      <button class="primary-button" type="button" :disabled="!store.dadosTratados.length" @click="exportRelatorio">
+      <button class="primary-button" type="button" :disabled="!estatisticas" @click="exportRelatorio">
         Exportar PDF
       </button>
     </header>
 
-    <div v-if="!store.dadosTratados.length" class="panel empty-panel">
+    <div v-if="loading" class="panel empty-panel" role="status">Carregando indicadores...</div>
+    <div v-else-if="erro" class="panel empty-panel error-panel" role="alert">{{ erro }}</div>
+    <div v-else-if="!estatisticas" class="panel empty-panel">
       <h2>Dados ainda não carregados</h2>
       <p>
         {{ isAdmin ? 'Faça o upload de uma planilha para visualizar os indicadores do painel.' : 'Aguardando envio da planilha pela equipe administrativa.' }}
@@ -207,11 +214,11 @@ function exportRelatorio() {
             <span v-if="periodoGrafico" class="chart-tag">{{ periodoGrafico }}</span>
           </div>
           <svg class="line-chart" viewBox="0 0 700 220" role="img" aria-label="Grafico de evolucao de faturamento">
-            <path :d="pathForLineChart" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
             <path v-if="pathForLineChart" :d="pathForLineChart + ' L685 210 L15 210Z'" fill="url(#area)" opacity=".45" />
+            <path :d="pathForLineChart" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
             <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2563eb" stop-opacity=".28"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
           </svg>
-          <div class="chart-axis"><span v-for="m in meses" :key="m.key">{{ m.rotulo }}</span></div>
+          <div class="chart-axis"><span v-for="mes in meses" :key="mes.key">{{ mes.rotulo }}</span></div>
         </article>
 
         <article class="panel">
@@ -226,12 +233,13 @@ function exportRelatorio() {
 
         <article class="panel segment-panel">
           <div class="panel-heading"><div><h2>Faturamento por segmento</h2><p>Distribuicao por mercado</p></div></div>
-          <div class="segment-list">
+          <div v-if="segments.length" class="segment-list">
             <div v-for="segment in segments" :key="segment.label" class="segment-row">
               <div><span>{{ segment.label }}</span><strong>{{ segment.value }}</strong></div>
               <div class="progress"><i :style="{ width: segment.width }"></i></div>
             </div>
           </div>
+          <p v-else class="subtitle">Sem dados de segmento neste lote.</p>
         </article>
       </div>
     </template>
@@ -252,6 +260,7 @@ function exportRelatorio() {
 h1 { margin: 0; color: #f8fafc; font-size: clamp(1.8rem, 4vw, 2.35rem); }
 .subtitle, .panel-heading p { color: #94a3b8; margin: 8px 0 0; }
 .primary-button { border: 0; border-radius: 8px; padding: 11px 16px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; font-weight: 700; cursor: pointer; }
+.primary-button:disabled { opacity: .5; cursor: not-allowed; }
 .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .metric-card, .panel { background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45); }
 .metric-card { padding: 20px; display: grid; gap: 11px; }
@@ -263,6 +272,7 @@ h1 { margin: 0; color: #f8fafc; font-size: clamp(1.8rem, 4vw, 2.35rem); }
 .panel-heading { display: flex; justify-content: space-between; gap: 16px; align-items: start; }.panel-heading h2 { margin: 0; color: #f8fafc; font-size: 1rem; }.chart-tag { color: #bfdbfe; background: rgba(37, 99, 235, 0.18); border: 1px solid rgba(96, 165, 250, 0.25); border-radius: 6px; padding: 5px 9px; font-size: .75rem; font-weight: 700; }
 .line-chart { width: 100%; height: 220px; margin-top: 22px; }.chart-axis { display: flex; justify-content: space-between; color: #94a3b8; font-size: .7rem; }
 .level-list, .segment-list { display: grid; gap: 22px; margin-top: 28px; }.level-row > div:first-child, .segment-row > div:first-child { display: flex; justify-content: space-between; margin-bottom: 9px; color: #e2e8f0; font-size: .82rem; }.level-row strong, .segment-row strong { color: #f8fafc; }.progress { height: 8px; overflow: hidden; border-radius: 20px; background: rgba(148, 163, 184, 0.14); }.progress i { display: block; height: 100%; border-radius: inherit; background: #0d9488; }
+.empty-panel { padding: 24px; }.empty-panel h2 { margin-top: 0; }.error-panel { color: #fca5a5; }
 @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); }.dashboard-grid { grid-template-columns: 1fr; }.segment-panel { grid-column: auto; } }
 @media (max-width: 540px) { .page-header { align-items: start; flex-direction: column; }.primary-button { width: 100%; }.kpi-grid { gap: 10px; }.metric-card { padding: 14px; }.metric-card strong { font-size: 1.2rem; } }
 </style>
