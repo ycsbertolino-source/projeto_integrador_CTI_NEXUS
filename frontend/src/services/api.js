@@ -37,4 +37,11 @@ export function mensagemDeErro(error, padrao = 'Não foi possível concluir a op
   return dados.erro || padrao
 }
 
+const corpo = (resposta) => resposta.data // o axios coloca a resposta em .data; esta função pega só ela
+
+export const dashboardService = { // ---- dados dos gráficos ----
+  obter: (loteId) => api.get('/api/dashboard', { params: { loteId } }).then(corpo), // GET /api/dashboard -> { lote, geradoEm, estatisticas }
+  lotes: () => api.get('/api/dashboard/lotes').then(corpo), // GET /api/dashboard/lotes -> os últimos lotes gravados no banco
+}
+
 export default api // Permite usar api em outras telas

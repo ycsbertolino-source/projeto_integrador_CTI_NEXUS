@@ -5,7 +5,7 @@ import { defineStore } from 'pinia' 		// Importa a função defineStore da Pinia
 // Depois de carregada, fica guardada nesta variável e é usada na leitura e no tratamento das datas.
 let XLSX = null
 import { useAuthStore } from '@/stores/authStore'
-import api, { mensagemDeErro } from '@/services/api'
+import api, { dashboardService, mensagemDeErro } from '@/services/api'
 
 const HISTORY_KEY_PREFIX = 'cti_upload_history_'
 
@@ -28,7 +28,7 @@ export const useUploadStore = defineStore('upload', {
     clientesPreparados: null, // Lista devolvida pelo backend (validada e padronizada)
     errosBackend: [],       // Mensagens de erro devolvidas pelo backend
     historicoAtualId: null, // id do registro do histórico que está aberto no Relatório
-    lotesServidor: [],      // Uploads salvos no banco (GET /api/lotes), iguais em qualquer navegador
+    lotesServidor: [],      // Uploads salvos no banco (GET /api/dashboard/lotes), iguais em qualquer navegador
     carregandoLotes: false,
     erroLotes: ''
   }),
@@ -269,7 +269,7 @@ export const useUploadStore = defineStore('upload', {
       this.carregandoLotes = true
       this.erroLotes = ''
       try {
-        const { data } = await api.get('/api/lotes')
+        const data = await dashboardService.lotes() // os 20 envios mais recentes
         this.lotesServidor = Array.isArray(data) ? data : []
       } catch (error) {
         this.lotesServidor = []

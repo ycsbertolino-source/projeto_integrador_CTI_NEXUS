@@ -10,7 +10,7 @@ const router = useRouter()
 
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 
-// A lista vem do banco (GET /api/lotes), então aparece igual em qualquer computador.
+// A lista vem do banco (GET /api/dashboard/lotes, os 20 mais recentes), então aparece igual em qualquer computador.
 onMounted(() => store.carregarLotes())
 
 const STATUS = {
@@ -22,20 +22,20 @@ const STATUS = {
 const reports = computed(() => {
   // 1) Uploads salvos no banco. Se este navegador tem as linhas guardadas, dá para abrir o detalhe.
   const doBanco = store.lotesServidor.map((lote) => {
-    const local = store.historico.find((h) => h.loteId === lote.loteId)
-    const recebidas = Number(lote.linhasRecebidas) || 0
+    const local = store.historico.find((h) => h.loteId === lote.id)
+    const recebidas = Number(lote.totalLinhas) || 0
     const validas = Number(lote.linhasValidas) || 0
     return {
-      key: `lote-${lote.loteId}`,
-      loteId: lote.loteId,
+      key: `lote-${lote.id}`,
+      loteId: lote.id,
       localId: local?.id ?? null,
       name: lote.arquivoNome || 'Planilha',
-      uploadedAt: lote.criadoEm,
+      uploadedAt: lote.enviadoEm,
       total: recebidas,
       valid: validas,
       invalid: Number(lote.linhasInvalidas) || Math.max(recebidas - validas, 0),
       status: STATUS[lote.status] || { texto: lote.status || '—', tom: 'info' },
-      erro: lote.mensagemErro || '',
+      erro: lote.mensagem || '',
     }
   })
 

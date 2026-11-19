@@ -2,6 +2,10 @@ package com.cti.provedor.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.cti.provedor.config.ApiException;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,22 +41,46 @@ class DashboardServiceIntegrationTest {
                 VALUES (?, '{"totalClientes":2,"resumo":{"total":1200}}')
                 """, loteId);
 
-        Map<String, Object> dashboard = dashboardService.obterDashboard(loteId);
+        Map<String, Object> dashboard = dashboardService.obter(loteId);
 
-        assertThat(dashboard).containsEntry("loteId", loteId);
-        assertThat(dashboard.get("estatisticas")).isEqualTo(
-                Map.of("totalClientes", 2, "resumo", Map.of("total", 1200))
-        );
+        @SuppressWarnings("unchecked")
+        Map<String, Object> lote = (Map<String, Object>) dashboard.get("lote");
+        assertThat(lote)
+                .containsEntry("id", loteId)
+                .containsEntry("arquivoNome", "clientes.csv")
+                .containsEntry("status", "PROCESSADO")
+                .containsEntry("totalLinhas", 2);
+        assertThat(dashboard.get("geradoEm")).isNotNull();
+        JsonNode estatisticas = (JsonNode) dashboard.get("estatisticas");
+        assertThat(estatisticas.get("totalClientes").asInt()).isEqualTo(2);
+        assertThat(estatisticas.get("resumo").get("total").asInt()).isEqualTo(1200);
+
+        // Sem loteId: devolve o último lote PROCESSADO
+        assertThat(dashboardService.obter(null).get("lote")).isEqualTo(lote);
+
         var lotes = dashboardService.listarLotes();
         assertThat(lotes).hasSize(1);
-        assertThat(lotes.getFirst())
-                .containsEntry("loteId", loteId)
-                .containsEntry("arquivoNome", "clientes.csv");
+        assertThat(lotes.getFirst()).containsEntry("id", loteId);
     }
 
     @Test
-    void returnsEmptyDashboardWhenThereAreNoProcessedUploads() {
-        assertThat(dashboardService.obterDashboard(null)).isEmpty();
+    void lotSentButNotYetCalculatedHasNullStatistics() {
+        jdbc.update("INSERT INTO upload_lote (arquivo_nome, status) VALUES ('novo.csv', 'PROCESSANDO')");
+
+        Map<String, Object> dashboard = dashboardService.obter(null);
+
+        assertThat(dashboard.get("lote")).isNotNull();
+        assertThat(dashboard.get("estatisticas")).isNull();
+    }
+
+    @Test
+    void returns404WhenThereAreNoUploads() {
+        assertThatThrownBy(() -> dashboardService.obter(null))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Nenhuma planilha");
+        assertThatThrownBy(() -> dashboardService.obter(999L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Lote 999");
         assertThat(dashboardService.listarLotes()).isEmpty();
     }
 }

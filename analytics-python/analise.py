@@ -76,10 +76,11 @@ def calcular(resultado: pd.DataFrame, linhas_recebidas: int) -> dict[str, Any]:
         "servico": contagens_servicos.index[0] if not contagens_servicos.empty else None,
     }
     top_clientes = resultado.nlargest(5, "faturamento_anual")[[
-        "codigo_cliente", "nome_cliente", "faturamento_anual",
+        "codigo_cliente", "nome_cliente", "segmento", "nivel_cliente", "faturamento_anual",
     ]].rename(columns={
         "codigo_cliente": "codigoCliente",
         "nome_cliente": "nomeCliente",
+        "nivel_cliente": "nivel",
         "faturamento_anual": "faturamentoAnual",
     }).to_dict(orient="records")
 

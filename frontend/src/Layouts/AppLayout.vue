@@ -23,9 +23,8 @@ function handleLogout() {
       </div>
 
       <nav>
-        <router-link to="/app/dashboard"><span class="nav-icon">⌂</span> Visão geral</router-link>
         <router-link to="/app/upload"><span class="nav-icon">↑</span> Upload</router-link>
-        <router-link to="/app/graficos"><span class="nav-icon">▥</span> Estatísticas</router-link>
+        <router-link to="/app/dashboard"><span class="nav-icon">▥</span> Gráficos</router-link>
         <router-link to="/app/relatorios"><span class="nav-icon">📄</span> Relatórios</router-link>
         <router-link v-if="authStore.user?.role === 'admin'" to="/app/usuarios"><span class="nav-icon">◎</span> Usuários</router-link>
         <router-link to="/app/configuracoes"><span class="nav-icon">⚙</span> Configurações</router-link>

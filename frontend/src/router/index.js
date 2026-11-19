@@ -9,8 +9,7 @@ import CadastroView from '../views/Cadastro.vue'
 // O painel interno só é baixado quando o usuário entra nele (deixa o primeiro carregamento mais leve).
 const AppLayout = () => import('../Layouts/AppLayout.vue')
 const Upload = () => import('../views/Upload.vue')
-const Dashboard = () => import('../views/Dashboard.vue')
-const Statistics = () => import('../views/Statistics.vue')
+const DashboardView = () => import('../views/DashboardView.vue') // Gráficos: lê o banco (Azure/Neon)
 const Users = () => import('../views/Users.vue')
 const UserCreate = () => import('../views/UserCreate.vue')
 const Settings = () => import('../views/Settings.vue')
@@ -41,11 +40,11 @@ const routes = [
     redirect: '/app/upload',
     meta: { requiresAuth: true },
     children: [
-      { path: 'dashboard', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
+      { path: 'dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } }, // Gráficos
       { path: 'upload', name: 'upload', component: Upload, meta: { requiresAuth: true } },
       { path: 'relatorio', name: 'relatorio', component: Relatorio, meta: { requiresAuth: true } },
       { path: 'relatorios', name: 'relatorios', component: Relatorios, meta: { requiresAuth: true } },
-      { path: 'graficos', name: 'statistics', component: Statistics, meta: { requiresAuth: true } },
+      { path: 'graficos', redirect: { name: 'dashboard' } }, // endereço antigo da tela Estatísticas
       { path: 'configuracoes', name: 'settings', component: Settings, meta: { requiresAuth: true } },
 
       { path: 'usuarios', name: 'users', component: Users, meta: { requiresAuth: true, admin: true } },
