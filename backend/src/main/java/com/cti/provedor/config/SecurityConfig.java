@@ -54,7 +54,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource(AppProperties props) {
         CorsConfiguration cfg = new CorsConfiguration();
         List<String> origens = props.cors() == null || props.cors().origins() == null
-                ? List.of() : props.cors().origins().stream().map(String::trim).toList();
+                ? List.of() : props.cors().origins().stream()
+                        .map(o -> o.trim().replaceAll("/+$", "")) // aceita o endereço da Vercel mesmo com "/" no fim
+                        .toList();
         cfg.setAllowedOrigins(origens);
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type"));

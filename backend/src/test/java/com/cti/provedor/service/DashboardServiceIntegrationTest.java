@@ -18,7 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
     "spring.datasource.username=sa",
     "spring.datasource.password=",
     "spring.jpa.hibernate.ddl-auto=none",
-    "spring.sql.init.mode=always"
+    "spring.sql.init.mode=always",
+    "app.jwt.secret=segredo-de-teste-com-mais-de-32-caracteres-ok"
 })
 @Transactional
 class DashboardServiceIntegrationTest {

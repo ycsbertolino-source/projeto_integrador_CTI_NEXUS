@@ -14,6 +14,8 @@ def database_url() -> str | URL:
     if url:
         return url
 
+    # DB_SSLMODE=require é obrigatório no PostgreSQL da Azure (cadastrado nas variáveis do App Service)
+    sslmode = os.getenv("DB_SSLMODE", "").strip()
     return URL.create(
         "postgresql+psycopg2",
         username=os.getenv("DB_USER", "postgres"),
@@ -21,4 +23,5 @@ def database_url() -> str | URL:
         host=os.getenv("DB_HOST", "localhost"),
         port=int(os.getenv("DB_PORT", "5432")),
         database=os.getenv("DB_NAME", "cti_nexus"),
+        query={"sslmode": sslmode} if sslmode else {},
     )

@@ -2,8 +2,12 @@ import axios from 'axios' // Biblioteca HTTP
 
 export const TOKEN_KEY = 'cti_token' // Onde o token JWT fica salvo no navegador
 
+// Endereço do backend (Spring Boot). As rotas deste arquivo já começam com /api,
+// então aceitamos VITE_API_URL com ou sem "/api" no final (a aula da Vercel usa ".../api").
+const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/+$/, '').replace(/\/api$/, '')
+
 const api = axios.create({ // Cria uma instância reutilizável
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080', // Endereço do backend (Spring Boot)
+  baseURL: BASE, // ex.: https://cti-api-SEUNOME.azurewebsites.net
   headers: { 'Content-Type': 'application/json' }, // Envia JSON
 })
 
