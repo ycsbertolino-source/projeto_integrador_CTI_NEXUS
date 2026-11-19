@@ -26,7 +26,11 @@ export const useUploadStore = defineStore('upload', {
     erroEnvio: '',          // Mensagem de erro do envio ao backend
     validandoBackend: false, // true enquanto o POST /api/clientes/validar está em andamento
     clientesPreparados: null, // Lista devolvida pelo backend (validada e padronizada)
-    errosBackend: []        // Mensagens de erro devolvidas pelo backend
+    errosBackend: [],       // Mensagens de erro devolvidas pelo backend
+    historicoAtualId: null, // id do registro do histórico que está aberto no Relatório
+    lotesServidor: [],      // Uploads salvos no banco (GET /api/lotes), iguais em qualquer navegador
+    carregandoLotes: false,
+    erroLotes: ''
   }),
 
 
@@ -92,7 +96,10 @@ export const useUploadStore = defineStore('upload', {
         }
       }
       return out
-    }
+    },
+
+    // Número do lote no banco da planilha aberta (null se ela ainda não foi enviada para análise)
+    loteAtual: (state) => state.historico.find((h) => h.id === state.historicoAtualId)?.loteId ?? null
   },
 
 
@@ -160,11 +167,13 @@ export const useUploadStore = defineStore('upload', {
         valid: validos,
         invalid: invalidos,
         createdAt: new Date().toISOString(),
+        loteId: null, // preenchido quando a planilha é enviada para análise e salva no banco
         dadosOriginais: JSON.parse(JSON.stringify(this.dadosOriginais || [])),
         dadosTratados: JSON.parse(JSON.stringify(this.dadosTratados || [])),
       }
 
       this.historico = [novoRegistro, ...this.historico].slice(0, 20)
+      this.historicoAtualId = novoRegistro.id
       this.persistHistory()
       return novoRegistro
     },
@@ -178,6 +187,7 @@ export const useUploadStore = defineStore('upload', {
       const dadosTratados = Array.isArray(item.dadosTratados) ? item.dadosTratados : []
       const dadosOriginais = Array.isArray(item.dadosOriginais) ? item.dadosOriginais : dadosTratados
 
+      this.historicoAtualId = item.id ?? null
       this.arquivo = { name: item.name || 'Planilha' }
       this.dadosOriginais = JSON.parse(JSON.stringify(dadosOriginais))
       // No JSON as datas viram texto; volta para Date (Dashboard e Estatísticas usam getFullYear)
@@ -254,8 +264,23 @@ export const useUploadStore = defineStore('upload', {
       }
     },
 
-    // PRÓXIMA ETAPA (Ciência de Dados): envia as linhas válidas a /api/uploads/validadas,
-    // que valida de novo e repassa ao serviço Python. Ainda não usado nas telas.
+    // Busca no banco a lista de uploads já processados (aparece em qualquer navegador).
+    async carregarLotes() {
+      this.carregandoLotes = true
+      this.erroLotes = ''
+      try {
+        const { data } = await api.get('/api/lotes')
+        this.lotesServidor = Array.isArray(data) ? data : []
+      } catch (error) {
+        this.lotesServidor = []
+        this.erroLotes = mensagemDeErro(error, 'Não foi possível carregar os relatórios salvos.')
+      } finally {
+        this.carregandoLotes = false
+      }
+    },
+
+    // Etapa de Ciência de Dados: envia as linhas válidas a /api/uploads/validadas,
+    // que valida de novo, repassa ao serviço Python e grava o lote no banco.
     async enviarValidadas() {
       this.erroEnvio = ''
       this.resultadoEnvio = null
@@ -289,6 +314,12 @@ export const useUploadStore = defineStore('upload', {
           linhas,
         })
         this.resultadoEnvio = data
+        // Liga o registro do histórico ao lote do banco (a tela Relatórios usa isso para abrir o detalhe)
+        const registro = this.historico.find((h) => h.id === this.historicoAtualId)
+        if (registro && data?.loteId != null) {
+          registro.loteId = data.loteId
+          this.persistHistory()
+        }
         return true
       } catch (error) {
         this.erroEnvio = mensagemDeErro(error, 'Não foi possível enviar a planilha.')
@@ -301,6 +332,7 @@ export const useUploadStore = defineStore('upload', {
     async lerArquivo(file) {
       this.erro = '' // Reseta a mensagem de erro global
       this.resultadoEnvio = null // Nova planilha: esquece o envio anterior
+      this.historicoAtualId = null
       this.erroEnvio = ''
       this.clientesPreparados = null
       this.errosBackend = []
@@ -514,6 +546,7 @@ export const useUploadStore = defineStore('upload', {
       this.erroEnvio = ''
       this.clientesPreparados = null
       this.errosBackend = []
+      this.historicoAtualId = null
     }
   }
 })

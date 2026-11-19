@@ -1,9 +1,14 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import api, { mensagemDeErro } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 
 const authStore = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+// Sem ?loteId= na URL mostra o lote mais recente; com ele (vindo da tela Relatórios) mostra aquele lote
+const loteEscolhido = computed(() => route.query.loteId || null)
 const dashboard = ref(null)
 const lotes = ref([])
 const loading = ref(true)
@@ -16,7 +21,7 @@ async function carregarDashboard() {
   erro.value = ''
   try {
     const [resposta, respostaLotes] = await Promise.all([
-      api.get('/api/dashboard'),
+      api.get('/api/dashboard', { params: loteEscolhido.value ? { loteId: loteEscolhido.value } : {} }),
       api.get('/api/lotes'),
     ])
     dashboard.value = resposta.data
@@ -33,7 +38,12 @@ async function carregarDashboard() {
   }
 }
 
-onMounted(carregarDashboard)
+// Carrega ao abrir a tela e de novo quando o lote da URL muda
+watch(loteEscolhido, carregarDashboard, { immediate: true })
+
+function verMaisRecente() {
+  router.push({ name: 'dashboard' })
+}
 
 const contratacoes = computed(() => {
   const porAno = new Map()
@@ -180,9 +190,13 @@ function exportRelatorio() {
   <section class="page-container">
     <header class="page-header">
       <div>
-        <p class="eyebrow">Central de inteligencia</p>
-        <h1>Visao geral</h1>
-        <p class="subtitle">Acompanhe os principais indicadores da sua operacao.</p>
+        <p class="eyebrow">Central de inteligência</p>
+        <h1>Visão geral</h1>
+        <p v-if="loteEscolhido && dashboard" class="subtitle">
+          Lote #{{ dashboard.loteId }} · {{ dashboard.arquivo_nome }}
+          <button type="button" class="link-inline" @click="verMaisRecente">ver o mais recente</button>
+        </p>
+        <p v-else class="subtitle">Acompanhe os principais indicadores da sua operação.</p>
       </div>
       <button class="primary-button" type="button" :disabled="!estatisticas" @click="exportRelatorio">
         Exportar PDF
@@ -259,6 +273,7 @@ function exportRelatorio() {
 .eyebrow { margin: 0 0 8px; color: #60a5fa; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 h1 { margin: 0; color: #f8fafc; font-size: clamp(1.8rem, 4vw, 2.35rem); }
 .subtitle, .panel-heading p { color: #94a3b8; margin: 8px 0 0; }
+.link-inline { border: 0; background: transparent; color: #7dd3fc; font-weight: 600; cursor: pointer; padding: 0 0 0 6px; }
 .primary-button { border: 0; border-radius: 8px; padding: 11px 16px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; font-weight: 700; cursor: pointer; }
 .primary-button:disabled { opacity: .5; cursor: not-allowed; }
 .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }

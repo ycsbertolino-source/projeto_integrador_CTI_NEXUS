@@ -136,6 +136,42 @@ function voltarParaUpload() {
         </div>
       </div>
 
+      <!-- Etapa 03: envia ao Spring Boot, que repassa ao Python; o lote fica salvo no banco -->
+      <div v-if="store.clientesPreparados || store.loteAtual" class="panel send-panel">
+        <div class="send-row">
+          <div>
+            <h2>Enviar para análise</h2>
+            <p class="panel-text">
+              Salva as linhas válidas no banco e gera as estatísticas do Dashboard
+              (POST /api/uploads/validadas). Depois disso o relatório aparece em qualquer computador.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="primary-button"
+            :disabled="store.enviando || Boolean(store.loteAtual)"
+            @click="store.enviarValidadas()"
+          >
+            {{ store.enviando ? 'Enviando...' : store.loteAtual ? 'Enviado' : 'Enviar para análise' }}
+          </button>
+        </div>
+
+        <div v-if="store.erroEnvio" class="alert alert-error">
+          <strong>Não foi possível enviar</strong>
+          <p>{{ store.erroEnvio }}</p>
+        </div>
+
+        <div v-if="store.loteAtual" class="alert alert-success">
+          <strong>Planilha salva no banco (lote #{{ store.loteAtual }}).</strong>
+          <p v-if="store.resultadoEnvio">
+            {{ store.resultadoEnvio.linhasValidas }} linhas processadas ·
+            {{ store.resultadoEnvio.linhasInvalidas }} descartadas ·
+            {{ store.resultadoEnvio.linhasComAviso }} com aviso.
+          </p>
+          <button type="button" class="link-button" @click="router.push({ name: 'dashboard' })">Ver no Dashboard →</button>
+        </div>
+      </div>
+
       <!-- Lista devolvida pelo backend, já padronizada (segmento, consultor, UF...) -->
       <div v-if="store.clientesPreparados?.length" class="panel">
         <div class="panel-heading"><h2>Dados preparados pelo backend</h2></div>
