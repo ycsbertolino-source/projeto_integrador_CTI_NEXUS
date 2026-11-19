@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUploadStore } from '@/store/uploadStore'
+import { useUploadStore } from '@/stores/uploadStore'
 
 const router = useRouter()
 const store = useUploadStore()

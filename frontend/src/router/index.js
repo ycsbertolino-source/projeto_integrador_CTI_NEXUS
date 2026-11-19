@@ -1,21 +1,21 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 
-// Layouts e Páginas Públicas
+// Home, Login e Cadastro entram no pacote principal (são as primeiras telas abertas).
 import HomeView from '../views/Home.vue'
 import LoginView from '../views/Login.vue'
 import CadastroView from '../views/Cadastro.vue'
-import AppLayout from '../Layouts/AppLayout.vue'
 
-// Layout e Páginas do Painel Interno
-import Upload from '../views/Upload.vue'
-import Dashboard from '../views/Dashboard.vue'
-import Statistics from '../views/Statistics.vue'
-import Users from '../views/Users.vue'
-import UserCreate from '../views/UserCreate.vue'
-import Settings from '../views/Settings.vue'
-import Relatorio from '../views/Relatorio.vue'
-import Relatorios from '../views/Relatorios.vue'
+// O painel interno só é baixado quando o usuário entra nele (deixa o primeiro carregamento mais leve).
+const AppLayout = () => import('../Layouts/AppLayout.vue')
+const Upload = () => import('../views/Upload.vue')
+const Dashboard = () => import('../views/Dashboard.vue')
+const Statistics = () => import('../views/Statistics.vue')
+const Users = () => import('../views/Users.vue')
+const UserCreate = () => import('../views/UserCreate.vue')
+const Settings = () => import('../views/Settings.vue')
+const Relatorio = () => import('../views/Relatorio.vue')
+const Relatorios = () => import('../views/Relatorios.vue')
 
 const routes = [
   // Páginas Públicas

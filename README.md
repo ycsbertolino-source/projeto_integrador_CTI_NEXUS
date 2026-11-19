@@ -43,6 +43,19 @@ cd ..
 
 ## Executar localmente
 
+### Atalho: tudo em um terminal
+
+Depois de preparar o banco, os arquivos `.env` e o ambiente Python (`.venv`, passo do Terminal 1 abaixo), rode na raiz:
+
+```powershell
+npm install
+npm run dev:completo
+```
+
+Isso sobe o frontend, o backend com PostgreSQL e a API Python juntos. O comando `npm run dev` sobe só o frontend e o backend no modo H2 (sem Python e sem dashboard).
+
+### Passo a passo: um terminal por serviço
+
 Inicie cada serviço em um terminal separado, a partir da raiz do projeto.
 
 **Terminal 1 — ETL e API Python**

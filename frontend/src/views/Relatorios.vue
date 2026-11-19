@@ -1,10 +1,10 @@
 <script setup>
 import { computed } from 'vue'
-import { usePlanilhaStore } from '@/stores/planilhaStore'
+import { useUploadStore } from '@/stores/uploadStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
 
-const store = usePlanilhaStore()
+const store = useUploadStore()
 const authStore = useAuthStore()
 const router = useRouter()
 

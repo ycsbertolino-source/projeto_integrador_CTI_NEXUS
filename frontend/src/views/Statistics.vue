@@ -1,9 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { usePlanilhaStore } from '@/stores/planilhaStore'
+import { useUploadStore } from '@/stores/uploadStore'
 import { useAuthStore } from '@/stores/authStore'
 
-const store = usePlanilhaStore()
+const store = useUploadStore()
 const authStore = useAuthStore()
 
 const isAdmin = computed(() => authStore.user?.role === 'admin')

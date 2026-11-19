@@ -1,7 +1,9 @@
 
 
 import { defineStore } from 'pinia' 		// Importa a função defineStore da Pinia para gerenciar o estado global
-import * as XLSX from 'xlsx'			 // Importa a biblioteca SheetJS (xlsx) para leitura e manipulação de planilhas
+// A biblioteca SheetJS (xlsx) é grande, então só é baixada quando o usuário envia uma planilha.
+// Depois de carregada, fica guardada nesta variável e é usada na leitura e no tratamento das datas.
+let XLSX = null
 import { useAuthStore } from '@/stores/authStore'
 import api, { mensagemDeErro } from '@/services/api'
 
@@ -317,6 +319,7 @@ export const useUploadStore = defineStore('upload', {
       }
 
       try {
+        XLSX ??= await import('xlsx') // Baixa a biblioteca de planilhas na primeira vez que for usada
         const buffer = await file.arrayBuffer() // Converte o arquivo carregado em um buffer binário ArrayBuffer
 
         // CSV: lê como texto UTF-8 (senão "Indústria" vira "IndÃºstria" e "R$ 1.850,00" vira "R$Â 1.850,00")
@@ -511,20 +514,6 @@ export const useUploadStore = defineStore('upload', {
       this.erroEnvio = ''
       this.clientesPreparados = null
       this.errosBackend = []
-    }
-    ,
-    // Métodos de compatibilidade usados pelas views
-    carregarPlanilha(nomeArquivo, linhas) {
-      this.arquivo = { name: nomeArquivo }
-      this.dadosOriginais = Array.isArray(linhas) ? linhas : []
-      this.dataUpload = new Date()
-      this.tratarDados()
-    },
-    resetar() {
-      this.limpar()
-    },
-    validarDados() {
-      this.tratarDados()
     }
   }
 })

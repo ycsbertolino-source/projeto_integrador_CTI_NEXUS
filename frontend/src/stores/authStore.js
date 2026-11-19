@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import api, { TOKEN_KEY, mensagemDeErro } from '@/services/api'
-import { useUploadStore } from '@/store/uploadStore'
+import { useUploadStore } from '@/stores/uploadStore'
 
 // O backend usa APROVADO/PENDENTE/BLOQUEADO; as telas mostram Ativo/Pendente/Bloqueado
 const STATUS_PARA_TELA = { APROVADO: 'Ativo', PENDENTE: 'Pendente', BLOQUEADO: 'Bloqueado' }

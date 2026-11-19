@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUploadStore } from '@/store/uploadStore'
+import { useUploadStore } from '@/stores/uploadStore'
 import { FileSpreadsheet, CheckCircle2, AlertTriangle, LayoutGrid, ArrowLeft } from '@/lib/lucide-vue-next'
 
 const store = useUploadStore()
