@@ -71,14 +71,21 @@ def testar(linhas: list[dict[str, Any]]):
     }
 
 
+# /lotes e /dashboard também exigem a chave: com o endereço público na internet,
+# sem ela qualquer pessoa leria os dados. O Java não usa estas rotas (ele lê o banco direto).
 @app.get("/lotes")
-def lotes():
+def lotes(x_etl_key: str | None = Header(default=None, alias="X-ETL-Key")):
+    _validar_chave(x_etl_key)
     return listar_lotes(_engine())
 
 
 @app.get("/dashboard")
 @app.get("/dashboard/{lote_id}")
-def dashboard(lote_id: int | None = None):
+def dashboard(
+    lote_id: int | None = None,
+    x_etl_key: str | None = Header(default=None, alias="X-ETL-Key"),
+):
+    _validar_chave(x_etl_key)
     try:
         resultado = obter_dashboard(_engine(), lote_id)
     except SQLAlchemyError as error:
